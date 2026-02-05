@@ -95,7 +95,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - No TypeScript errors when importing shared types
 - **Dependencies**: 2.1
 
-### 2.3 Define IPC Message Types
+### [x] 2.3 Define IPC Message Types
 - **Description**: Create TypeScript types for IPC communication between main and renderer processes
 - **Validation Criteria**:
   - IPC request types are defined (e.g., `ScanFolderRequest`, `ReplaceDocumentsRequest`)

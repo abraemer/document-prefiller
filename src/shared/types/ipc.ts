@@ -24,6 +24,10 @@ export const IPC_CHANNELS = {
   MINIMIZE_WINDOW: 'window:minimize',
   MAXIMIZE_WINDOW: 'window:maximize',
   CLOSE_WINDOW: 'window:close',
+
+  // Event channels (main -> renderer)
+  PROGRESS_EVENT: 'progress:event',
+  SETTINGS_CHANGED: 'settings:changed',
 } as const;
 
 /**
@@ -276,6 +280,40 @@ export interface ProgressEventData {
 // ============================================================================
 
 /**
+ * IPC Error Codes
+ * Standard error codes for IPC operations
+ */
+export enum IpcErrorCode {
+  // General errors
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  INVALID_REQUEST = 'INVALID_REQUEST',
+  TIMEOUT = 'TIMEOUT',
+
+  // Folder operation errors
+  FOLDER_NOT_FOUND = 'FOLDER_NOT_FOUND',
+  FOLDER_ACCESS_DENIED = 'FOLDER_ACCESS_DENIED',
+  FOLDER_NOT_DIRECTORY = 'FOLDER_NOT_DIRECTORY',
+  NO_DOCUMENTS_FOUND = 'NO_DOCUMENTS_FOUND',
+
+  // Document operation errors
+  DOCUMENT_NOT_FOUND = 'DOCUMENT_NOT_FOUND',
+  DOCUMENT_READ_ERROR = 'DOCUMENT_READ_ERROR',
+  DOCUMENT_WRITE_ERROR = 'DOCUMENT_WRITE_ERROR',
+  DOCUMENT_PARSE_ERROR = 'DOCUMENT_PARSE_ERROR',
+  INVALID_DOCUMENT_FORMAT = 'INVALID_DOCUMENT_FORMAT',
+
+  // Settings operation errors
+  SETTINGS_LOAD_ERROR = 'SETTINGS_LOAD_ERROR',
+  SETTINGS_SAVE_ERROR = 'SETTINGS_SAVE_ERROR',
+  INVALID_SETTINGS = 'INVALID_SETTINGS',
+
+  // Replacement operation errors
+  REPLACEMENT_FAILED = 'REPLACEMENT_FAILED',
+  OUTPUT_FOLDER_ERROR = 'OUTPUT_FOLDER_ERROR',
+  COPY_FAILED = 'COPY_FAILED',
+}
+
+/**
  * IPC Error Response
  * Standard error response for IPC calls
  */
@@ -283,11 +321,13 @@ export interface IpcErrorResponse {
   /** Whether the operation failed */
   success: false;
   /** Error code */
-  code?: string;
+  code?: IpcErrorCode | string;
   /** Human-readable error message */
   message: string;
   /** Additional error details */
   details?: unknown;
+  /** Stack trace for debugging (development only) */
+  stack?: string;
 }
 
 /**
@@ -306,3 +346,133 @@ export interface IpcSuccessResponse<T = unknown> {
  * Union type for all IPC responses
  */
 export type IpcResponse<T = unknown> = IpcSuccessResponse<T> | IpcErrorResponse;
+
+// ============================================================================
+// EVENT TYPES (Main -> Renderer)
+// ============================================================================
+
+/**
+ * Settings Changed Event
+ * Emitted when application settings are updated
+ */
+export interface SettingsChangedEvent {
+  /** Updated settings */
+  settings: {
+    /** Last selected folder path */
+    lastFolder?: string;
+    /** Window state for persistence */
+    windowState?: {
+      /** Window width in pixels */
+      width: number;
+      /** Window height in pixels */
+      height: number;
+      /** Window X position */
+      x?: number;
+      /** Window Y position */
+      y?: number;
+      /** Whether window is maximized */
+      maximized?: boolean;
+    };
+    /** User preferences */
+    preferences?: {
+      /** Default prefix for new folders */
+      defaultPrefix?: string;
+    };
+  };
+}
+
+/**
+ * Progress Event
+ * Emitted during long-running operations
+ */
+export interface ProgressEvent {
+  /** Type of operation */
+  operation: 'scan' | 'replace';
+  /** Current progress (0-100) */
+  progress: number;
+  /** Current item being processed */
+  currentItem?: string;
+  /** Total number of items */
+  total?: number;
+  /** Number of items completed */
+  completed?: number;
+  /** Whether the operation is complete */
+  isComplete?: boolean;
+}
+
+/**
+ * Error Event
+ * Emitted when an error occurs during an operation
+ */
+export interface ErrorEvent {
+  /** Type of operation that failed */
+  operation: 'scan' | 'replace' | 'save' | 'load';
+  /** Error message */
+  message: string;
+  /** Error code */
+  code?: string;
+  /** Additional error details */
+  details?: unknown;
+}
+
+// ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+/**
+ * Type guard to check if an IPC response is successful
+ */
+export function isIpcSuccessResponse<T = unknown>(
+  response: IpcResponse<T>
+): response is IpcSuccessResponse<T> {
+  return response.success === true;
+}
+
+/**
+ * Type guard to check if an IPC response is an error
+ */
+export function isIpcErrorResponse(
+  response: IpcResponse<unknown>
+): response is IpcErrorResponse {
+  return response.success === false;
+}
+
+/**
+ * Type guard to check if a value is a ProgressEvent
+ */
+export function isProgressEvent(value: unknown): value is ProgressEvent {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'operation' in value &&
+    'progress' in value &&
+    typeof (value as ProgressEvent).progress === 'number' &&
+    ['scan', 'replace'].includes((value as ProgressEvent).operation)
+  );
+}
+
+/**
+ * Type guard to check if a value is a SettingsChangedEvent
+ */
+export function isSettingsChangedEvent(value: unknown): value is SettingsChangedEvent {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'settings' in value &&
+    typeof (value as SettingsChangedEvent).settings === 'object'
+  );
+}
+
+/**
+ * Type guard to check if a value is an ErrorEvent
+ */
+export function isErrorEvent(value: unknown): value is ErrorEvent {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'operation' in value &&
+    'message' in value &&
+    typeof (value as ErrorEvent).message === 'string' &&
+    ['scan', 'replace', 'save', 'load'].includes((value as ErrorEvent).operation)
+  );
+}

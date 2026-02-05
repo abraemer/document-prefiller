@@ -61,7 +61,13 @@ export type {
   IpcErrorResponse,
   IpcSuccessResponse,
   IpcResponse,
+  SettingsChangedEvent,
+  ProgressEvent,
+  ErrorEvent,
 } from './ipc';
+
+// Re-export IPC error codes enum
+export { IpcErrorCode } from './ipc';
 
 // Re-export IPC channels constant
 export { IPC_CHANNELS } from './ipc';
@@ -97,6 +103,8 @@ import type {
   GetDocumentsResponse,
   GetSettingsResponse,
   SaveSettingsResponse,
+  ProgressEvent,
+  SettingsChangedEvent,
 } from './ipc';
 
 /**
@@ -218,6 +226,15 @@ export type IpcResponseForChannel<T extends IpcChannel> = T extends typeof IPC_C
   ? GetSettingsResponse
   : T extends typeof IPC_CHANNELS.SAVE_SETTINGS
   ? SaveSettingsResponse
+  : never;
+
+/**
+ * Extract the event data type for a given IPC event channel
+ */
+export type IpcEventForChannel<T extends IpcChannel> = T extends typeof IPC_CHANNELS.PROGRESS_EVENT
+  ? ProgressEvent
+  : T extends typeof IPC_CHANNELS.SETTINGS_CHANGED
+  ? SettingsChangedEvent
   : never;
 
 /**

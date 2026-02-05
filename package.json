@@ -6,6 +6,7 @@
   "type": "module",
   "author": "",
   "license": "MIT",
+  "homepage": "https://github.com/abraemer/document-prefiller",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
@@ -63,8 +64,7 @@
       "buildResources": "public/icons"
     },
     "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
+      "out/**/*",
       "package.json"
     ],
     "win": {
@@ -111,18 +111,6 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "rpm",
           "arch": [
             "x64"
           ]
