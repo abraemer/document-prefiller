@@ -335,7 +335,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for component
 - **Dependencies**: 5.1, 1.8
 
-### 5.3 Create Marker List Component
+### [x] 5.3 Create Marker List Component
 - **Description**: Create a component to display all detected markers
 - **Validation Criteria**:
   - `src/renderer/components/MarkerList.vue` exists
