@@ -138,7 +138,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for folder scanning
 - **Dependencies**: 2.2, 2.4
 
-### 3.2 Implement .docx File Parsing
+### [x] 3.2 Implement .docx File Parsing
 - **Description**: Create a function to extract text content from .docx files
 - **Validation Criteria**:
   - `parseDocxFile()` function exists in scanner service

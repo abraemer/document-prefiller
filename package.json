@@ -24,6 +24,7 @@
   "packageManager": "yarn@1.22.0",
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "jszip": "^3.10.1",
     "sass": "^1.97.3",
     "sass-loader": "^16.0.6",
     "vue": "^3.4.0",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/vue": "^8.1.0",
+    "@types/adm-zip": "^0.5.7",
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",

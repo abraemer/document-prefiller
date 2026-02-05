@@ -16,6 +16,7 @@ import {
   MAX_MARKERS_PER_DOCUMENT,
   MAX_UNIQUE_MARKERS,
 } from '../../shared/constants/index.js';
+import { parseDocxFile, DocxParseError } from '../utils/docx-parser.js';
 
 /**
  * Scan a folder for .docx files and detect markers
@@ -64,9 +65,15 @@ export async function scanFolder(
       const markers = detectMarkers(text, prefix);
       documentMarkers.set(filePath, markers);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let errorMessage = 'Unknown error';
+      if (error instanceof DocxParseError) {
+        errorMessage = error.message;
+        console.error(`Error parsing ${filePath}:`, errorMessage, error.cause);
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error(`Error parsing ${filePath}:`, errorMessage);
+      }
       errors.push({ file: filePath, error: errorMessage });
-      console.error(`Error parsing ${filePath}:`, errorMessage);
     }
   }
 
@@ -128,96 +135,6 @@ async function findDocxFiles(folderPath: string): Promise<string[]> {
       resolve(docxFiles);
     });
   });
-}
-
-/**
- * Parse a .docx file and extract text content
- * .docx files are ZIP archives containing XML files
- *
- * @param filePath - Path to the .docx file
- * @returns Extracted text content from the document
- * @throws Error if file cannot be parsed
- */
-export async function parseDocxFile(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Read the file as a buffer
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        reject(new Error(`Failed to read file: ${err.message}`));
-        return;
-      }
-
-      try {
-        // .docx files are ZIP archives
-        // We need to extract the document.xml file from word/ directory
-        // For now, we'll do a simple text extraction by looking for XML content
-        // In a production app, you'd use a library like jszip or adm-zip
-
-        // Check if it's a valid ZIP file (starts with PK signature)
-        if (data.length < 4 || data[0] !== 0x50 || data[1] !== 0x4b) {
-          reject(new Error('Invalid .docx file: not a valid ZIP archive'));
-          return;
-        }
-
-        // Extract text from the ZIP archive
-        // We'll look for the word/document.xml file and extract text from <w:t> tags
-        const text = extractTextFromDocx(data);
-        resolve(text);
-      } catch (error) {
-        reject(
-          new Error(
-            `Failed to parse .docx file: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-        );
-      }
-    });
-  });
-}
-
-/**
- * Extract text from .docx file buffer
- * This is a simplified implementation that extracts text from word/document.xml
- *
- * @param buffer - Buffer containing the .docx file data
- * @returns Extracted text content
- */
-function extractTextFromDocx(buffer: Buffer): string {
-  // Convert buffer to string for XML parsing
-  const content = buffer.toString('binary');
-
-  // Find the word/document.xml file in the ZIP archive
-  // This is a simplified approach - in production, use a proper ZIP library
-  const documentXmlPattern = /word\/document\.xml.*?<\/w:document>/s;
-  const match = content.match(documentXmlPattern);
-
-  if (!match) {
-    // If we can't find document.xml, try to extract text from all <w:t> tags
-    // This is a fallback that might work in some cases
-    const textPattern = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-    const textMatches = content.matchAll(textPattern);
-    const textParts: string[] = [];
-
-    for (const textMatch of textMatches) {
-      if (textMatch[1]) {
-        textParts.push(textMatch[1]);
-      }
-    }
-
-    return textParts.join(' ');
-  }
-
-  // Extract text from <w:t> tags in the document.xml
-  const textPattern = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-  const textMatches = match[0].matchAll(textPattern);
-  const textParts: string[] = [];
-
-  for (const textMatch of textMatches) {
-    if (textMatch[1]) {
-      textParts.push(textMatch[1]);
-    }
-  }
-
-  return textParts.join(' ');
 }
 
 /**
