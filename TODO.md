@@ -168,7 +168,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for file operations
 - **Dependencies**: 2.2
 
-### 3.5 Create Save File Read Operations
+### [x] 3.5 Create Save File Read Operations
 - **Description**: Implement reading of .replacement-values.json files
 - **Validation Criteria**:
   - `readSaveFile()` function exists in storage service
@@ -179,7 +179,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for read operations
 - **Dependencies**: 2.1, 2.5
 
-### 3.6 Create Save File Write Operations
+### [x] 3.6 Create Save File Write Operations
 - **Description**: Implement writing of .replacement-values.json files
 - **Validation Criteria**:
   - `writeSaveFile()` function exists in storage service
