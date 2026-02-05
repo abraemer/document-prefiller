@@ -23,6 +23,9 @@ export default defineConfig({
         'dist-electron/',
       ],
     },
+    typecheck: {
+      tsconfig: './tsconfig.test.json',
+    },
   },
   resolve: {
     alias: {

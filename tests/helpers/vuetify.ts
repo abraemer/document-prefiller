@@ -1,11 +1,4 @@
 import { config } from '@vue/test-utils'
-import { createVuetify } from 'vuetify'
-
-// Create a Vuetify instance for testing
-const vuetify = createVuetify()
-
-// Configure Vue Test Utils to use Vuetify
-config.global.plugins = [vuetify]
 
 // Mock Vuetify's $vuetify property
 config.global.mocks = {
@@ -27,4 +20,19 @@ config.global.mocks = {
       },
     },
   },
+}
+
+// Stub all Vuetify components to avoid CSS import issues
+config.global.stubs = {
+  VApp: true,
+  VMain: true,
+  VContainer: true,
+  VRow: true,
+  VCol: true,
+  VCard: true,
+  VCardTitle: true,
+  VCardText: true,
+  VBtn: true,
+  VIcon: true,
+  VDivider: true,
 }
