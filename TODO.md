@@ -104,7 +104,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Types ensure type-safe IPC communication
 - **Dependencies**: 2.2
 
-### 2.4 Create Constants File
+### [x] 2.4 Create Constants File
 - **Description**: Define application constants (default values, file names, etc.)
 - **Validation Criteria**:
   - `src/shared/constants/index.ts` exists
