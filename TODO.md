@@ -427,7 +427,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for composable
 - **Dependencies**: 2.2, 1.8
 
-### 6.2 Create Composable for Document Management
+### [x] 6.2 Create Composable for Document Management
 - **Description**: Implement `useDocuments` composable for document state
 - **Validation Criteria**:
   - `src/renderer/composables/useDocuments.ts` exists
