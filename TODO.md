@@ -190,7 +190,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for write operations
 - **Dependencies**: 3.5
 
-### 3.7 Implement Window State Persistence
+### [x] 3.7 Implement Window State Persistence
 - **Description**: Create functions to save and restore window state
 - **Validation Criteria**:
   - `saveWindowState()` function exists

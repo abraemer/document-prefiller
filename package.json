@@ -24,6 +24,7 @@
   "packageManager": "yarn@1.22.0",
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "electron-store": "^11.0.2",
     "jszip": "^3.10.1",
     "sass": "^1.97.3",
     "sass-loader": "^16.0.6",
