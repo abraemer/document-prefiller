@@ -1280,6 +1280,353 @@ describe('Replacer Service', () => {
       expect(progressUpdates[progressUpdates.length - 1].phase).toBe('complete');
     });
   });
+
+  describe('Error Handling for Malformed Documents', () => {
+    it('should handle corrupted .docx file (not a ZIP)', async () => {
+      const invalidPath = path.join(sourceDir, 'corrupted.docx');
+      await fs.writeFile(invalidPath, 'This is not a valid .docx file');
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments).toHaveLength(1);
+      expect(result.failedDocuments[0].path).toContain('corrupted.docx');
+      expect(result.failedDocuments[0].error).toContain('not a valid ZIP archive');
+    });
+
+    it('should handle .docx file with missing document.xml', async () => {
+      const zip = new JSZip();
+      // Add content types but no document.xml
+      zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>');
+      zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+
+      const buffer = await zip.generateAsync({ type: 'nodebuffer' });
+      const invalidPath = path.join(sourceDir, 'missing-doc.docx');
+      await fs.writeFile(invalidPath, buffer);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('word/document.xml not found');
+    });
+
+    it('should handle .docx file with empty document.xml', async () => {
+      const xmlContent = '';
+      const docxPath = path.join(sourceDir, 'empty-xml.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('document.xml is empty');
+    });
+
+    it('should handle .docx file with invalid XML structure', async () => {
+      const xmlContent = 'This is not valid XML at all';
+      const docxPath = path.join(sourceDir, 'invalid-xml.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('invalid structure');
+    });
+
+    it('should handle .docx file with malformed XML (missing closing tags)', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>REPLACEME-NAME</w:t></w:r>
+  <!-- Missing closing tags for w:p and w:body -->
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'malformed-xml.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      // The replacement should still work even with malformed XML
+      // as long as the basic structure is present
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle .docx file with XML missing w:document element', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:body xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>REPLACEME-NAME</w:t></w:r></w:p>
+</w:body>`;
+
+      const docxPath = path.join(sourceDir, 'missing-document.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('invalid structure');
+    });
+
+    it('should handle .docx file with XML missing w:body element', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>REPLACEME-NAME</w:t></w:r></w:p>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'missing-body.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('invalid structure');
+    });
+
+    it('should handle .docx file that is too small', async () => {
+      const tinyPath = path.join(sourceDir, 'tiny.docx');
+      await fs.writeFile(tinyPath, Buffer.from([0x50, 0x4b])); // Just PK signature
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('file too small');
+    });
+
+    it('should handle .docx file with corrupted ZIP structure', async () => {
+      // Create a file with PK signature but invalid ZIP structure
+      const corruptedBuffer = Buffer.concat([
+        Buffer.from([0x50, 0x4b, 0x03, 0x04]), // ZIP local file header signature
+        Buffer.alloc(100, 0xFF) // Invalid data
+      ]);
+      const corruptedPath = path.join(sourceDir, 'corrupted-zip.docx');
+      await fs.writeFile(corruptedPath, corruptedBuffer);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toContain('corrupted or invalid ZIP archive');
+    });
+
+    it('should handle malformed marker patterns gracefully', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Text with REPLACEME-NAME and REPLACEME-</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'malformed-marker.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      // Should handle malformed markers gracefully
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle special characters in marker patterns', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Text with REPLACEME-TEST* and REPLACEME-TEST+</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'special-chars.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { 'TEST*': 'Value1', 'TEST+': 'Value2' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle write errors gracefully', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'write-test.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      // Make output directory read-only to simulate write error
+      await fs.chmod(outputDir, 0o444);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      try {
+        const result = await replaceMarkers(request);
+        
+        // Restore permissions for cleanup
+        await fs.chmod(outputDir, 0o755);
+
+        // If we get here, the copy failed which is expected
+        expect(result.success).toBe(false);
+        expect(result.errors).toBeGreaterThan(0);
+      } catch (error) {
+        // Restore permissions for cleanup
+        await fs.chmod(outputDir, 0o755);
+        
+        // The error should be a ReplacementError
+        expect(error).toBeInstanceOf(ReplacementError);
+        expect((error as ReplacementError).message).toContain('permission denied');
+      }
+    });
+
+    it('should handle multiple errors in batch processing', async () => {
+      // Create one valid document
+      const validXml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Valid: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+      await createTestDocx(path.join(sourceDir, 'valid.docx'), validXml);
+
+      // Create multiple invalid documents
+      await fs.writeFile(path.join(sourceDir, 'invalid1.docx'), 'Not a ZIP');
+      await fs.writeFile(path.join(sourceDir, 'invalid2.docx'), 'Also not a ZIP');
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(false);
+      expect(result.processed).toBe(1);
+      expect(result.errors).toBe(2);
+      expect(result.failedDocuments).toHaveLength(2);
+    });
+
+    it('should provide clear error messages with file paths', async () => {
+      const invalidPath = path.join(sourceDir, 'clear-error.docx');
+      await fs.writeFile(invalidPath, 'Invalid content');
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.failedDocuments[0].path).toContain('clear-error.docx');
+      expect(result.failedDocuments[0].error).toBeTruthy();
+      expect(result.failedDocuments[0].error.length).toBeGreaterThan(0);
+    });
+
+    it('should handle ReplacementError with errorType', async () => {
+      const invalidPath = path.join(sourceDir, 'error-type.docx');
+      await fs.writeFile(invalidPath, 'Invalid');
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.errors).toBe(1);
+      expect(result.failedDocuments[0].error).toBeTruthy();
+    });
+  });
 });
 
 /**

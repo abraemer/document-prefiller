@@ -5,9 +5,16 @@ import JSZip from 'jszip';
  * Custom error class for .docx parsing errors
  */
 export class DocxParseError extends Error {
-  constructor(message: string, public cause?: Error) {
+  public readonly cause?: Error;
+  public readonly filePath?: string;
+  public readonly errorType?: 'corrupted_file' | 'invalid_xml' | 'missing_file' | 'read_error' | 'unknown';
+
+  constructor(message: string, cause?: Error, filePath?: string, errorType?: DocxParseError['errorType']) {
     super(message);
     this.name = 'DocxParseError';
+    this.cause = cause;
+    this.filePath = filePath;
+    this.errorType = errorType;
   }
 }
 
@@ -19,15 +26,29 @@ export class DocxParseError extends Error {
  */
 export async function parseDocxFile(filePath: string): Promise<string> {
   try {
+    // Validate file exists and is readable
+    try {
+      await fs.access(filePath, fs.constants.R_OK);
+    } catch {
+      throw new DocxParseError(
+        `File not found or not accessible: ${filePath}`,
+        undefined,
+        filePath,
+        'read_error'
+      );
+    }
+
     const buffer = await fs.readFile(filePath);
-    return await extractTextFromDocx(buffer);
+    return await extractTextFromDocx(buffer, filePath);
   } catch (error) {
     if (error instanceof DocxParseError) {
       throw error;
     }
     throw new DocxParseError(
       `Failed to read .docx file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
+      filePath,
+      'read_error'
     );
   }
 }
@@ -35,18 +56,29 @@ export async function parseDocxFile(filePath: string): Promise<string> {
 /**
  * Extract text content from a .docx file buffer
  * @param buffer Buffer containing .docx file data
+ * @param filePath Optional file path for error reporting
  * @returns Extracted text content
  * @throws DocxParseError if the buffer cannot be parsed
  */
-export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+export async function extractTextFromDocx(buffer: Buffer, filePath?: string): Promise<string> {
   // Validate minimum file size
   if (buffer.length < 4) {
-    throw new DocxParseError('Invalid .docx file: file too small');
+    throw new DocxParseError(
+      `Invalid .docx file: file too small (${buffer.length} bytes)`,
+      undefined,
+      filePath,
+      'corrupted_file'
+    );
   }
 
   // Check if it's a valid ZIP file (starts with PK signature)
   if (buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
-    throw new DocxParseError('Invalid .docx file: not a valid ZIP archive');
+    throw new DocxParseError(
+      'Invalid .docx file: not a valid ZIP archive (missing PK signature)',
+      undefined,
+      filePath,
+      'corrupted_file'
+    );
   }
 
   try {
@@ -54,7 +86,7 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     const zip = await JSZip.loadAsync(buffer);
 
     // Try to extract text from the main document
-    const text = await extractTextFromZip(zip);
+    const text = await extractTextFromZip(zip, filePath);
     return text;
   } catch (error) {
     if (error instanceof DocxParseError) {
@@ -62,7 +94,9 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
     }
     throw new DocxParseError(
       `Failed to extract text from .docx file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
+      filePath,
+      'corrupted_file'
     );
   }
 }
@@ -70,10 +104,11 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
 /**
  * Extract text from a JSZip instance
  * @param zip JSZip instance containing .docx data
+ * @param filePath Optional file path for error reporting
  * @returns Extracted text content
  * @throws DocxParseError if document.xml cannot be found or parsed
  */
-async function extractTextFromZip(zip: JSZip): Promise<string> {
+async function extractTextFromZip(zip: JSZip, filePath?: string): Promise<string> {
   // Get the main document XML file
   const documentXml = zip.file('word/document.xml');
 
@@ -81,7 +116,10 @@ async function extractTextFromZip(zip: JSZip): Promise<string> {
     // List available files for debugging
     const availableFiles = Object.keys(zip.files).join(', ');
     throw new DocxParseError(
-      `Invalid .docx file: word/document.xml not found. Available entries: ${availableFiles}`
+      `Invalid .docx file: word/document.xml not found. Available entries: ${availableFiles}`,
+      undefined,
+      filePath,
+      'missing_file'
     );
   }
 
@@ -89,12 +127,37 @@ async function extractTextFromZip(zip: JSZip): Promise<string> {
     // Extract the XML content
     const xmlContent = await documentXml.async('string');
 
+    // Validate XML content is not empty
+    if (!xmlContent || xmlContent.trim().length === 0) {
+      throw new DocxParseError(
+        'Invalid .docx file: document.xml is empty',
+        undefined,
+        filePath,
+        'invalid_xml'
+      );
+    }
+
+    // Validate XML has basic structure (must have both w:document and w:body)
+    if (!xmlContent.includes('<w:document') || !xmlContent.includes('<w:body')) {
+      throw new DocxParseError(
+        'Invalid .docx file: document.xml has invalid structure (missing w:document or w:body)',
+        undefined,
+        filePath,
+        'invalid_xml'
+      );
+    }
+
     // Extract text from the XML
     return extractTextFromXml(xmlContent);
   } catch (error) {
+    if (error instanceof DocxParseError) {
+      throw error;
+    }
     throw new DocxParseError(
       `Failed to extract text from document.xml: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
+      filePath,
+      'invalid_xml'
     );
   }
 }

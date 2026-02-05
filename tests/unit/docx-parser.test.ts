@@ -62,7 +62,7 @@ describe('.docx Parser Utility', () => {
       const nonExistentPath = '/path/to/nonexistent/file.docx';
       
       await expect(parseDocxFile(nonExistentPath)).rejects.toThrow(DocxParseError);
-      await expect(parseDocxFile(nonExistentPath)).rejects.toThrow('Failed to read');
+      await expect(parseDocxFile(nonExistentPath)).rejects.toThrow('not found or not accessible');
     });
 
     it('should throw error for invalid .docx file', async () => {
@@ -200,6 +200,30 @@ describe('.docx Parser Utility', () => {
       expect(error.message).toBe('Test error message');
       expect(error.cause).toBe(cause);
       expect(error.cause?.message).toBe('Original error');
+    });
+
+    it('should create error with filePath', () => {
+      const error = new DocxParseError('Test error message', undefined, '/path/to/file.docx');
+      
+      expect(error.message).toBe('Test error message');
+      expect(error.filePath).toBe('/path/to/file.docx');
+    });
+
+    it('should create error with errorType', () => {
+      const error = new DocxParseError('Test error message', undefined, undefined, 'corrupted_file');
+      
+      expect(error.message).toBe('Test error message');
+      expect(error.errorType).toBe('corrupted_file');
+    });
+
+    it('should create error with all properties', () => {
+      const cause = new Error('Original error');
+      const error = new DocxParseError('Test error message', cause, '/path/to/file.docx', 'invalid_xml');
+      
+      expect(error.message).toBe('Test error message');
+      expect(error.cause).toBe(cause);
+      expect(error.filePath).toBe('/path/to/file.docx');
+      expect(error.errorType).toBe('invalid_xml');
     });
 
     it('should be throwable and catchable', () => {

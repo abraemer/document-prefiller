@@ -15,11 +15,15 @@ import { DOCUMENT_EXTENSION } from '../../shared/constants';
  */
 export class ReplacementError extends Error {
   public readonly cause?: Error;
+  public readonly filePath?: string;
+  public readonly errorType?: 'corrupted_file' | 'invalid_xml' | 'missing_file' | 'malformed_marker' | 'write_error' | 'read_error' | 'unknown';
 
-  constructor(message: string, cause?: Error) {
+  constructor(message: string, cause?: Error, filePath?: string, errorType?: ReplacementError['errorType']) {
     super(message);
     this.name = 'ReplacementError';
     this.cause = cause;
+    this.filePath = filePath;
+    this.errorType = errorType;
   }
 }
 
@@ -331,39 +335,168 @@ async function replaceMarkersInFile(
   prefix: string
 ): Promise<void> {
   try {
+    // Validate file exists and is readable
+    try {
+      await fs.access(filePath, fs.constants.R_OK);
+    } catch {
+      throw new ReplacementError(
+        `File not found or not accessible: ${filePath}`,
+        undefined,
+        filePath,
+        'read_error'
+      );
+    }
+
     // Read the file
-    const buffer = await fs.readFile(filePath);
+    let buffer: Buffer;
+    try {
+      buffer = await fs.readFile(filePath);
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to read file: ${filePath}`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'read_error'
+      );
+    }
+
+    // Validate minimum file size
+    if (buffer.length < 4) {
+      throw new ReplacementError(
+        `Invalid .docx file: file too small (${buffer.length} bytes)`,
+        undefined,
+        filePath,
+        'corrupted_file'
+      );
+    }
+
+    // Check if it's a valid ZIP file (starts with PK signature)
+    if (buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+      throw new ReplacementError(
+        `Invalid .docx file: not a valid ZIP archive (missing PK signature)`,
+        undefined,
+        filePath,
+        'corrupted_file'
+      );
+    }
 
     // Load the ZIP archive
-    const zip = await JSZip.loadAsync(buffer);
+    let zip: JSZip;
+    try {
+      zip = await JSZip.loadAsync(buffer);
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to parse .docx file: corrupted or invalid ZIP archive`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'corrupted_file'
+      );
+    }
 
     // Get the main document XML file
     const documentXml = zip.file('word/document.xml');
     if (!documentXml) {
-      throw new ReplacementError('Invalid .docx file: word/document.xml not found');
+      // List available files for better error message
+      const availableFiles = Object.keys(zip.files).join(', ');
+      throw new ReplacementError(
+        `Invalid .docx file: word/document.xml not found. Available entries: ${availableFiles}`,
+        undefined,
+        filePath,
+        'missing_file'
+      );
     }
 
     // Extract the XML content
-    const xmlContent = await documentXml.async('string');
+    let xmlContent: string;
+    try {
+      xmlContent = await documentXml.async('string');
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to extract XML content from document.xml`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'invalid_xml'
+      );
+    }
+
+    // Validate XML content is not empty
+    if (!xmlContent || xmlContent.trim().length === 0) {
+      throw new ReplacementError(
+        `Invalid .docx file: document.xml is empty`,
+        undefined,
+        filePath,
+        'invalid_xml'
+      );
+    }
+
+    // Validate XML has basic structure (must have both w:document and w:body)
+    if (!xmlContent.includes('<w:document') || !xmlContent.includes('<w:body')) {
+      throw new ReplacementError(
+        `Invalid .docx file: document.xml has invalid structure (missing w:document or w:body)`,
+        undefined,
+        filePath,
+        'invalid_xml'
+      );
+    }
 
     // Replace markers in the XML
-    const modifiedXml = replaceMarkersInXml(xmlContent, values, prefix);
+    let modifiedXml: string;
+    try {
+      modifiedXml = replaceMarkersInXml(xmlContent, values, prefix);
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to replace markers in document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'malformed_marker'
+      );
+    }
 
     // Update the document in the ZIP
-    zip.file('word/document.xml', modifiedXml);
+    try {
+      zip.file('word/document.xml', modifiedXml);
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to update document.xml in ZIP archive`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'write_error'
+      );
+    }
 
     // Generate the new buffer
-    const newBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    let newBuffer: Buffer;
+    try {
+      newBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to generate .docx file buffer`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'write_error'
+      );
+    }
 
     // Write the modified file
-    await fs.writeFile(filePath, newBuffer);
+    try {
+      await fs.writeFile(filePath, newBuffer);
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to write modified file: ${filePath}`,
+        error instanceof Error ? error : undefined,
+        filePath,
+        'write_error'
+      );
+    }
   } catch (error) {
     if (error instanceof ReplacementError) {
       throw error;
     }
     throw new ReplacementError(
       `Failed to replace markers in file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
+      filePath,
+      'unknown'
     );
   }
 }
