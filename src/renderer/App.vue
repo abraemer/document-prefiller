@@ -80,6 +80,8 @@
                               density="compact"
                               placeholder="e.g., REPLACEME-"
                               :rules="prefixRules"
+                              :error-messages="prefixValidationErrors"
+                              :error="prefixValidationErrors.length > 0"
                               @update:model-value="handlePrefixChange"
                             />
                           </v-col>
@@ -393,7 +395,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import type { Marker } from '@/shared/types';
-import { DEFAULT_PREFIX, MIN_PREFIX_LENGTH, MAX_PREFIX_LENGTH } from '@/shared/constants';
+import { DEFAULT_PREFIX } from '@/shared/constants';
+import { useValidation } from './composables/useValidation';
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+const { 
+  validatePrefix, 
+  isFormValid, 
+  getPrefixRules,
+} = useValidation();
 
 // ============================================================================
 // STATE
@@ -426,19 +439,26 @@ const showWarning = ref<boolean>(false);
 const warningMessage = ref<string>('');
 const warningTitle = ref<string>('Warning');
 
+// Validation state
+const prefixValidationErrors = ref<string[]>([]);
+
 // ============================================================================
 // COMPUTED
 // ============================================================================
 
 const canReplace = computed(() => {
-  return currentFolder.value !== '' && markers.value.length > 0;
+  // Only allow replacement if:
+  // 1. A folder is selected
+  // 2. There are markers
+  // 3. The form is valid (prefix is valid)
+  return currentFolder.value !== '' && 
+         markers.value.length > 0 && 
+         isFormValid.value;
 });
 
-const prefixRules = [
-  (v: string) => !!v || 'Prefix is required',
-  (v: string) => v.length >= MIN_PREFIX_LENGTH || `Prefix must be at least ${MIN_PREFIX_LENGTH} character`,
-  (v: string) => v.length <= MAX_PREFIX_LENGTH || `Prefix must be at most ${MAX_PREFIX_LENGTH} characters`,
-];
+const prefixRules = computed(() => {
+  return getPrefixRules();
+});
 
 // ============================================================================
 // METHODS
@@ -476,6 +496,10 @@ async function handleSelectFolder(): Promise<void> {
  */
 async function handlePrefixChange(newPrefix: string): Promise<void> {
   try {
+    // Validate the prefix
+    const result = validatePrefix(newPrefix);
+    prefixValidationErrors.value = result.errors;
+
     if (newPrefix && currentFolder.value) {
       isLoading.value = true;
       loadingMessage.value = 'Rescanning documents...';
@@ -528,6 +552,17 @@ function handleMarkerValueChange(marker: Marker): void {
  */
 async function handleReplace(): Promise<void> {
   try {
+    // Validate form before proceeding
+    const prefixResult = validatePrefix(markerPrefix.value);
+    prefixValidationErrors.value = prefixResult.errors;
+
+    if (!prefixResult.isValid) {
+      showError.value = true;
+      errorTitle.value = 'Validation Error';
+      errorMessage.value = 'Please fix the validation errors before replacing markers.';
+      return;
+    }
+
     isLoading.value = true;
     loadingMessage.value = 'Replacing markers...';
     showProgress.value = true;
@@ -660,6 +695,10 @@ function _clearNotifications(): void {
 // ============================================================================
 
 onMounted(() => {
+  // Validate initial prefix
+  const result = validatePrefix(markerPrefix.value);
+  prefixValidationErrors.value = result.errors;
+
   // TODO: Load last folder from settings
   // if (lastFolder) {
   //   currentFolder.value = lastFolder;

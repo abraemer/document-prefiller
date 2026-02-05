@@ -470,7 +470,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Values are loaded on folder open
 - **Dependencies**: 6.1, 6.4
 
-### 6.6 Implement Marker Status Tracking
+### [x] 6.6 Implement Marker Status Tracking
 - **Description**: Track and display marker status (new/removed/active)
 - **Validation Criteria**:
   - New markers are detected (not in save file)
@@ -480,7 +480,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Status updates on rescan
 - **Dependencies**: 6.1, 6.2
 
-### 6.7 Add Form Validation
+### [x] 6.7 Add Form Validation
 - **Description**: Implement validation for marker values and prefix
 - **Validation Criteria**:
   - Prefix validation ensures non-empty string

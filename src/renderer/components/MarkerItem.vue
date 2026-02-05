@@ -38,9 +38,11 @@
         :model-value="marker.value"
         :label="`Value for ${marker.identifier}`"
         :placeholder="`Enter replacement value for ${marker.identifier}`"
+        :error-messages="showErrorMessages ? errorMessages : []"
+        :error="showErrorMessages"
         variant="outlined"
         density="compact"
-        hide-details
+        hide-details="auto"
         :disabled="marker.status === 'removed'"
         @update:model-value="handleValueChange"
         @keydown.enter="handleEnterKey"
@@ -70,14 +72,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { Marker } from '../../shared/types';
+import { useValidation } from '../composables/useValidation';
 
 /**
  * MarkerItem Component
  *
  * Displays an individual marker with its status indicator and allows
  * users to enter replacement values.
+ *
+ * According to TODO.md Step 6.7: "Marker values have no validation (allow any input)"
  *
  * @example
  * ```vue
@@ -93,6 +98,8 @@ import type { Marker } from '../../shared/types';
 interface Props {
   /** The marker to display */
   marker: Marker;
+  /** Whether to show validation errors (always false for marker values per TODO.md) */
+  showValidation?: boolean;
 }
 
 interface Emits {
@@ -102,10 +109,38 @@ interface Emits {
   (e: 'enter-pressed', identifier: string): void;
   /** Emitted when Tab key is pressed in the input field */
   (e: 'tab-pressed', identifier: string): void;
+  /** Emitted when validation state changes (always valid for marker values) */
+  (e: 'validation', identifier: string, isValid: boolean): void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showValidation: false,
+});
+
 const emit = defineEmits<Emits>();
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+const { validateMarkerValue } = useValidation();
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+/** Whether the field has been touched (user interacted with it) */
+const isTouched = ref<boolean>(false);
+
+/** Whether the field is currently valid (always true for marker values) */
+const isValid = ref<boolean>(true);
+
+/** Validation error messages (always empty for marker values) */
+const errorMessages = ref<string[]>([]);
+
+// ============================================================================
+// COMPUTED
+// ============================================================================
 
 /**
  * Color for the marker status indicator based on status
@@ -144,10 +179,40 @@ const statusIcon = computed(() => {
 });
 
 /**
+ * Whether to show error messages (always false for marker values per TODO.md)
+ */
+const showErrorMessages = computed(() => {
+  return props.showValidation && isTouched.value && errorMessages.value.length > 0;
+});
+
+// ============================================================================
+// METHODS
+// ============================================================================
+
+/**
+ * Perform validation on the marker value
+ * According to TODO.md, marker values have no validation (always valid)
+ */
+function performValidation(value: string): boolean {
+  const result = validateMarkerValue(value, props.marker.identifier);
+  isValid.value = result.isValid;
+  errorMessages.value = result.errors;
+  emit('validation', props.marker.identifier, result.isValid);
+  return result.isValid;
+}
+
+/**
  * Handle marker value change
  * Emits the value-change event with the marker identifier and new value
  */
 function handleValueChange(value: string): void {
+  // Mark as touched
+  isTouched.value = true;
+  
+  // Validate (always valid for marker values per TODO.md)
+  performValidation(value);
+  
+  // Emit value change
   emit('value-change', props.marker.identifier, value);
 }
 
@@ -166,6 +231,15 @@ function handleEnterKey(): void {
 function handleTabKey(): void {
   emit('tab-pressed', props.marker.identifier);
 }
+
+/**
+ * Expose validation method for parent components
+ */
+defineExpose({
+  validate: performValidation,
+  isValid,
+  errorMessages,
+});
 </script>
 
 <style scoped>

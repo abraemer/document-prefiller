@@ -4,10 +4,11 @@
       v-model="localPrefix"
       :label="label"
       :hint="hint"
-      :error-messages="errorMessages"
+      :error-messages="showErrorMessages ? errorMessages : []"
       :rules="validationRules"
       :disabled="disabled"
       :loading="loading"
+      :error="showErrorMessages"
       variant="outlined"
       density="comfortable"
       prepend-inner-icon="mdi-tag"
@@ -35,7 +36,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { DEFAULT_PREFIX, MIN_PREFIX_LENGTH, MAX_PREFIX_LENGTH } from '@/shared/constants';
+import { DEFAULT_PREFIX } from '@/shared/constants';
+import { useValidation } from '../composables/useValidation';
 
 // ============================================================================
 // PROPS
@@ -54,6 +56,8 @@ interface Props {
   disabled?: boolean;
   /** Whether the input is in a loading state */
   loading?: boolean;
+  /** Whether to show validation errors inline */
+  showValidation?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -63,6 +67,7 @@ const props = withDefaults(defineProps<Props>(), {
   tooltipText: 'Markers in documents must start with this prefix (e.g., REPLACEME-WORD)',
   disabled: false,
   loading: false,
+  showValidation: true,
 });
 
 // ============================================================================
@@ -78,9 +83,17 @@ interface Emits {
   (e: 'blur', value: string): void;
   /** Emitted when Enter key is pressed */
   (e: 'enter', value: string): void;
+  /** Emitted when validation state changes */
+  (e: 'validation', isValid: boolean): void;
 }
 
 const emit = defineEmits<Emits>();
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+const { validatePrefix: validatePrefixValue, getPrefixRules } = useValidation();
 
 // ============================================================================
 // STATE
@@ -88,6 +101,12 @@ const emit = defineEmits<Emits>();
 
 /** Local state for the prefix value */
 const localPrefix = ref<string>(props.modelValue);
+
+/** Whether the field has been touched (user interacted with it) */
+const isTouched = ref<boolean>(false);
+
+/** Whether the field is currently valid */
+const isValid = ref<boolean>(true);
 
 /** Validation error messages */
 const errorMessages = ref<string[]>([]);
@@ -99,20 +118,19 @@ const errorMessages = ref<string[]>([]);
 /**
  * Validation rules for the prefix input
  */
-const validationRules = computed(() => [
-  (value: string) => {
-    if (!value || value.trim().length === 0) {
-      return 'Prefix cannot be empty';
-    }
-    if (value.length < MIN_PREFIX_LENGTH) {
-      return `Prefix must be at least ${MIN_PREFIX_LENGTH} character(s)`;
-    }
-    if (value.length > MAX_PREFIX_LENGTH) {
-      return `Prefix must not exceed ${MAX_PREFIX_LENGTH} characters`;
-    }
-    return true;
-  },
-]);
+const validationRules = computed(() => {
+  if (!props.showValidation) {
+    return [];
+  }
+  return getPrefixRules();
+});
+
+/**
+ * Whether to show error messages
+ */
+const showErrorMessages = computed(() => {
+  return props.showValidation && isTouched.value && errorMessages.value.length > 0;
+});
 
 // ============================================================================
 // WATCHERS
@@ -126,6 +144,10 @@ watch(
   (newValue) => {
     if (newValue !== localPrefix.value) {
       localPrefix.value = newValue;
+      // Validate when value changes externally
+      if (isTouched.value) {
+        performValidation(newValue);
+      }
     }
   }
 );
@@ -135,25 +157,21 @@ watch(
 // ============================================================================
 
 /**
+ * Perform validation on the prefix value
+ */
+function performValidation(value: string): boolean {
+  const result = validatePrefixValue(value);
+  isValid.value = result.isValid;
+  errorMessages.value = result.errors;
+  emit('validation', result.isValid);
+  return result.isValid;
+}
+
+/**
  * Validate the prefix value
  */
 const validatePrefix = (value: string): boolean => {
-  const errors: string[] = [];
-
-  if (!value || value.trim().length === 0) {
-    errors.push('Prefix cannot be empty');
-  }
-
-  if (value.length < MIN_PREFIX_LENGTH) {
-    errors.push(`Prefix must be at least ${MIN_PREFIX_LENGTH} character(s)`);
-  }
-
-  if (value.length > MAX_PREFIX_LENGTH) {
-    errors.push(`Prefix must not exceed ${MAX_PREFIX_LENGTH} characters`);
-  }
-
-  errorMessages.value = errors;
-  return errors.length === 0;
+  return performValidation(value);
 };
 
 /**
@@ -163,11 +181,12 @@ const handlePrefixChange = (value: string): void => {
   localPrefix.value = value;
   emit('update:modelValue', value);
 
-  // Validate the new value
-  const isValid = validatePrefix(value);
+  // Mark as touched and validate
+  isTouched.value = true;
+  const isValueValid = performValidation(value);
 
   // Only emit change event if valid
-  if (isValid) {
+  if (isValueValid) {
     emit('change', value);
   }
 };
@@ -182,11 +201,14 @@ const handleBlur = (): void => {
   if (trimmedValue !== localPrefix.value) {
     localPrefix.value = trimmedValue;
     emit('update:modelValue', trimmedValue);
-    
-    const isValid = validatePrefix(trimmedValue);
-    if (isValid) {
-      emit('change', trimmedValue);
-    }
+  }
+  
+  // Mark as touched and validate
+  isTouched.value = true;
+  const isValueValid = performValidation(trimmedValue);
+  
+  if (isValueValid) {
+    emit('change', trimmedValue);
   }
   
   emit('blur', localPrefix.value);
@@ -202,15 +224,27 @@ const handleEnter = (): void => {
   if (trimmedValue !== localPrefix.value) {
     localPrefix.value = trimmedValue;
     emit('update:modelValue', trimmedValue);
-    
-    const isValid = validatePrefix(trimmedValue);
-    if (isValid) {
-      emit('change', trimmedValue);
-    }
+  }
+  
+  // Mark as touched and validate
+  isTouched.value = true;
+  const isValueValid = performValidation(trimmedValue);
+  
+  if (isValueValid) {
+    emit('change', trimmedValue);
   }
   
   emit('enter', localPrefix.value);
 };
+
+/**
+ * Expose validation method for parent components
+ */
+defineExpose({
+  validate: validatePrefix,
+  isValid,
+  errorMessages,
+});
 </script>
 
 <style scoped>
