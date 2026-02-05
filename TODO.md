@@ -158,7 +158,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for various marker patterns
 - **Dependencies**: 3.2, 2.4
 
-### 3.4 Implement File Copy Operations
+### [x] 3.4 Implement File Copy Operations
 - **Description**: Create utility functions for copying files between directories
 - **Validation Criteria**:
   - `copyFile()` function exists in `src/main/utils/file.ts`
