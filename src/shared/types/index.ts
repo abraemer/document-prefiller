@@ -1,301 +1,247 @@
 /**
- * Shared Types
- * TypeScript type definitions shared between main and renderer processes
+ * Shared Types Package
  * 
- * This file contains all data model interfaces as specified in PLAN.md section 5
- * plus IPC message types for inter-process communication
- */
-
-// ============================================================================
-// DATA MODELS (from PLAN.md section 5)
-// ============================================================================
-
-/**
- * Replacement Values File
- * 
- * Represents the .replacement-values.json file structure
- * 
- * @example
- * ```json
- * {
- *   "prefix": "REPLACEME-",
- *   "values": {
- *     "WORD": "example",
- *     "NAME": "Jane Smith",
- *     "DATE": "2024-02-05",
- *     "COMPANY": "Acme Corp"
- *   },
- *   "version": "1.0",
- *   "lastModified": "2024-02-05T06:58:33.420Z"
- * }
- * ```
- */
-export interface ReplacementValuesFile {
-  /** Marker prefix (e.g., "REPLACEME-") */
-  prefix: string;
-  /** Key: identifier, Value: replacement text */
-  values: Record<string, string>;
-  /** File format version */
-  version: string;
-  /** ISO timestamp of last modification */
-  lastModified?: string;
-}
-
-/**
- * Application Settings
- * 
- * Represents the application-wide settings stored in Electron store
+ * This is the main entry point for all shared TypeScript types.
+ * Types defined here can be imported in both main and renderer processes.
  * 
  * @example
  * ```typescript
- * {
- *   lastFolder: "/path/to/documents",
- *   windowState: {
- *     width: 1200,
- *     height: 800,
- *     x: 100,
- *     y: 100,
- *     maximized: false
- *   },
- *   preferences: {
- *     defaultPrefix: "REPLACEME-"
- *   }
- * }
+ * // Import all types
+ * import * as SharedTypes from '@shared/types';
+ * 
+ * // Import specific types
+ * import { Marker, ScanResult, AppSettings } from '@shared/types';
+ * 
+ * // Import IPC types
+ * import { IPC_CHANNELS, ScanFolderRequest, ScanFolderResponse } from '@shared/types';
  * ```
  */
-export interface AppSettings {
-  /** Last selected folder path */
-  lastFolder?: string;
-  /** Window state for persistence */
-  windowState: {
-    /** Window width in pixels */
-    width: number;
-    /** Window height in pixels */
-    height: number;
-    /** Window X position */
-    x?: number;
-    /** Window Y position */
-    y?: number;
-    /** Whether window is maximized */
-    maximized?: boolean;
-  };
-  /** User preferences */
-  preferences: {
-    /** Default prefix for new folders */
-    defaultPrefix?: string;
-  };
+
+// ============================================================================
+// DATA MODELS
+// ============================================================================
+
+export * from './data-models';
+
+// Re-export commonly used data model types for convenience
+export type {
+  ReplacementValuesFile,
+  AppSettings,
+  Marker,
+  ScanResult,
+  MarkerStatus,
+  DocumentInfo,
+  ReplacementRequest,
+  ReplacementResult,
+} from './data-models';
+
+// ============================================================================
+// IPC MESSAGE TYPES
+// ============================================================================
+
+export * from './ipc';
+
+// Re-export commonly used IPC types for convenience
+export type {
+  IpcChannel,
+  ScanFolderRequest,
+  ScanFolderResponse,
+  SelectFolderResponse,
+  ReplaceDocumentsRequest,
+  ReplaceDocumentsResponse,
+  GetDocumentsRequest,
+  GetDocumentsResponse,
+  GetSettingsResponse,
+  SaveSettingsRequest,
+  SaveSettingsResponse,
+  MinimizeWindowRequest,
+  MaximizeWindowRequest,
+  CloseWindowRequest,
+  ProgressEventData,
+  IpcErrorResponse,
+  IpcSuccessResponse,
+  IpcResponse,
+} from './ipc';
+
+// Re-export IPC channels constant
+export { IPC_CHANNELS } from './ipc';
+
+// ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+import type {
+  Marker,
+  ScanResult,
+  ReplacementValuesFile,
+  AppSettings,
+} from './data-models';
+import type {
+  IpcResponse,
+  IpcSuccessResponse,
+  IpcErrorResponse,
+  IpcChannel,
+} from './ipc';
+import { IPC_CHANNELS } from './ipc';
+import type {
+  ScanFolderRequest,
+  ReplaceDocumentsRequest,
+  GetDocumentsRequest,
+  SaveSettingsRequest,
+  MinimizeWindowRequest,
+  MaximizeWindowRequest,
+  CloseWindowRequest,
+  ScanFolderResponse,
+  SelectFolderResponse,
+  ReplaceDocumentsResponse,
+  GetDocumentsResponse,
+  GetSettingsResponse,
+  SaveSettingsResponse,
+} from './ipc';
+
+/**
+ * Type guard to check if a value is a Marker
+ */
+export function isMarker(value: unknown): value is Marker {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'identifier' in value &&
+    'fullMarker' in value &&
+    'value' in value &&
+    'status' in value &&
+    'documents' in value &&
+    Array.isArray((value as Marker).documents)
+  );
 }
 
 /**
- * Marker Data Model
- * 
- * Represents a replacement marker detected in documents
- * 
- * @example
- * ```typescript
- * {
- *   identifier: "WORD",
- *   fullMarker: "REPLACEME-WORD",
- *   value: "example",
- *   status: "active",
- *   documents: ["template.docx", "contract.docx"]
- * }
- * ```
+ * Type guard to check if a value is a ScanResult
  */
-export interface Marker {
-  /** The identifier part (e.g., "WORD") */
-  identifier: string;
-  /** Full marker including prefix (e.g., "REPLACEME-WORD") */
-  fullMarker: string;
-  /** Current replacement value */
-  value: string;
-  /** Marker status: active (detected), new (detected but not saved), removed (saved but not detected) */
-  status: 'active' | 'new' | 'removed';
-  /** List of documents containing this marker */
-  documents: string[];
+export function isScanResult(value: unknown): value is ScanResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'folder' in value &&
+    'documents' in value &&
+    'markers' in value &&
+    'prefix' in value &&
+    'timestamp' in value &&
+    Array.isArray((value as ScanResult).documents) &&
+    Array.isArray((value as ScanResult).markers)
+  );
 }
 
 /**
- * Document Scan Result
- * 
- * Represents the result of scanning a folder for documents and markers
- * 
- * @example
- * ```typescript
- * {
- *   folder: "/path/to/documents",
- *   documents: ["template.docx", "contract.docx", "letter.docx"],
- *   markers: [
- *     {
- *       identifier: "WORD",
- *       fullMarker: "REPLACEME-WORD",
- *       value: "example",
- *       status: "active",
- *       documents: ["template.docx", "contract.docx"]
- *     }
- *   ],
- *   prefix: "REPLACEME-",
- *   timestamp: "2024-02-05T09:19:31.958Z"
- * }
- * ```
+ * Type guard to check if a value is a ReplacementValuesFile
  */
-export interface ScanResult {
-  /** Scanned folder path */
-  folder: string;
-  /** List of .docx files found */
-  documents: string[];
-  /** Detected markers */
-  markers: Marker[];
-  /** Prefix used for scanning */
-  prefix: string;
-  /** Scan timestamp in ISO format */
-  timestamp: string;
+export function isReplacementValuesFile(value: unknown): value is ReplacementValuesFile {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'prefix' in value &&
+    'values' in value &&
+    'version' in value &&
+    typeof (value as ReplacementValuesFile).prefix === 'string' &&
+    typeof (value as ReplacementValuesFile).values === 'object' &&
+    typeof (value as ReplacementValuesFile).version === 'string'
+  );
+}
+
+/**
+ * Type guard to check if a value is an AppSettings
+ */
+export function isAppSettings(value: unknown): value is AppSettings {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'windowState' in value &&
+    'preferences' in value &&
+    typeof (value as AppSettings).windowState === 'object' &&
+    typeof (value as AppSettings).preferences === 'object'
+  );
+}
+
+/**
+ * Type guard to check if an IPC response is successful
+ */
+export function isIpcSuccessResponse<T = unknown>(
+  response: IpcResponse<T>
+): response is IpcSuccessResponse<T> {
+  return response.success === true;
+}
+
+/**
+ * Type guard to check if an IPC response is an error
+ */
+export function isIpcErrorResponse(
+  response: IpcResponse<unknown>
+): response is IpcErrorResponse {
+  return response.success === false;
 }
 
 // ============================================================================
-// ADDITIONAL HELPER TYPES
+// UTILITY TYPES
 // ============================================================================
 
 /**
- * Marker Status Type
- * 
- * Union type for marker status
+ * Extract the request type for a given IPC channel
  */
-export type MarkerStatus = 'active' | 'new' | 'removed';
+export type IpcRequestForChannel<T extends IpcChannel> = T extends typeof IPC_CHANNELS.SCAN_FOLDER
+  ? ScanFolderRequest
+  : T extends typeof IPC_CHANNELS.REPLACE_DOCUMENTS
+  ? ReplaceDocumentsRequest
+  : T extends typeof IPC_CHANNELS.GET_DOCUMENTS
+  ? GetDocumentsRequest
+  : T extends typeof IPC_CHANNELS.SAVE_SETTINGS
+  ? SaveSettingsRequest
+  : T extends typeof IPC_CHANNELS.MINIMIZE_WINDOW
+  ? MinimizeWindowRequest
+  : T extends typeof IPC_CHANNELS.MAXIMIZE_WINDOW
+  ? MaximizeWindowRequest
+  : T extends typeof IPC_CHANNELS.CLOSE_WINDOW
+  ? CloseWindowRequest
+  : never;
 
 /**
- * Document File Info
- * 
- * Represents a document file with basic metadata
+ * Extract the response type for a given IPC channel
  */
-export interface DocumentInfo {
-  /** Document file path */
-  path: string;
-  /** Document file name */
-  name: string;
-  /** Markers found in this document */
-  markers: string[];
-}
+export type IpcResponseForChannel<T extends IpcChannel> = T extends typeof IPC_CHANNELS.SCAN_FOLDER
+  ? ScanFolderResponse
+  : T extends typeof IPC_CHANNELS.SELECT_FOLDER
+  ? SelectFolderResponse
+  : T extends typeof IPC_CHANNELS.REPLACE_DOCUMENTS
+  ? ReplaceDocumentsResponse
+  : T extends typeof IPC_CHANNELS.GET_DOCUMENTS
+  ? GetDocumentsResponse
+  : T extends typeof IPC_CHANNELS.GET_SETTINGS
+  ? GetSettingsResponse
+  : T extends typeof IPC_CHANNELS.SAVE_SETTINGS
+  ? SaveSettingsResponse
+  : never;
 
 /**
- * Replacement Request
- * 
- * Request payload for document replacement operation
+ * Make all properties in T optional recursively
  */
-export interface ReplacementRequest {
-  /** Source folder path */
-  sourceFolder: string;
-  /** Output folder path */
-  outputFolder: string;
-  /** Replacement values to apply */
-  values: Record<string, string>;
-  /** Marker prefix used */
-  prefix: string;
-}
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
 
 /**
- * Replacement Result
- * 
- * Result of document replacement operation
+ * Make all properties in T required recursively
  */
-export interface ReplacementResult {
-  /** Whether operation was successful */
-  success: boolean;
-  /** Number of documents processed */
-  processed: number;
-  /** Number of documents with errors */
-  errors: number;
-  /** Error message if operation failed */
-  errorMessage?: string;
-  /** List of processed document paths */
-  processedDocuments: string[];
-  /** List of failed document paths with errors */
-  failedDocuments: Array<{
-    path: string;
-    error: string;
-  }>;
-}
-
-// ============================================================================
-// IPC MESSAGE TYPES (for inter-process communication)
-// ============================================================================
+export type DeepRequired<T> = {
+  [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P];
+};
 
 /**
- * IPC Channel names
+ * Extract keys of T where the value type is U
  */
-export const IPC_CHANNELS = {
-  // Folder operations
-  SCAN_FOLDER: 'folder:scan',
-  SELECT_FOLDER: 'folder:select',
-  
-  // Document operations
-  REPLACE_DOCUMENTS: 'document:replace',
-  GET_DOCUMENTS: 'document:get',
-  
-  // Settings operations
-  GET_SETTINGS: 'settings:get',
-  SAVE_SETTINGS: 'settings:save',
-  
-  // Window operations
-  MINIMIZE_WINDOW: 'window:minimize',
-  MAXIMIZE_WINDOW: 'window:maximize',
-  CLOSE_WINDOW: 'window:close',
-} as const
-
-export type IpcChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS]
+export type KeysOfType<T, U> = {
+  [K in keyof T]: T[K] extends U ? K : never;
+}[keyof T];
 
 /**
- * IPC Request/Response types
+ * Create a type with only the specified keys from T
  */
-export interface ScanFolderRequest {
-  folderPath: string
-}
-
-export interface ScanFolderResponse {
-  documents: DocumentInfo[]
-  error?: string
-}
-
-export interface SelectFolderResponse {
-  folderPath: string | null
-  error?: string
-}
-
-export interface ReplaceDocumentsRequest {
-  folderPath: string
-  markers: DocumentMarker[]
-}
-
-export interface ReplaceDocumentsResponse {
-  success: boolean
-  processed: number
-  error?: string
-}
-
-export interface GetDocumentsRequest {
-  folderPath: string
-}
-
-export interface GetDocumentsResponse {
-  documents: DocumentInfo[]
-  error?: string
-}
-
-export interface SaveSettingsRequest {
-  settings: AppSettings
-}
-
-export interface SaveSettingsResponse {
-  success: boolean
-  error?: string
-}
-
-/**
- * Document marker for replacement (legacy type for IPC compatibility)
- */
-export interface DocumentMarker {
-  id: string
-  name: string
-  prefix: string
-  enabled: boolean
-}
+export type PickByType<T, U> = Pick<T, KeysOfType<T, U>>;

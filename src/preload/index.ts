@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   DocumentMarker,
-  DocumentInfo,
   AppSettings,
   ScanFolderRequest,
   ScanFolderResponse,
@@ -143,8 +142,8 @@ const eventAPI = {
   /**
    * Listen for document updates
    */
-  onDocumentUpdated: (callback: (document: DocumentInfo) => void): void => {
-    const listener = (_event: Electron.IpcRendererEvent, document: DocumentInfo) => {
+  onDocumentUpdated: (callback: (document: { path: string; name: string; markers: string[] }) => void): void => {
+    const listener = (_event: Electron.IpcRendererEvent, document: { path: string; name: string; markers: string[] }) => {
       callback(document)
     }
     ipcRenderer.on('document:updated', listener)

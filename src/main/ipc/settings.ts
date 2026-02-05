@@ -54,7 +54,19 @@ export function registerSettingsHandlers() {
       // TODO: Save settings to storage service
       console.log('Saving settings:', settings)
       
-      currentSettings = { ...settings }
+      // Merge settings with current settings
+      currentSettings = {
+        ...currentSettings,
+        ...settings,
+        windowState: {
+          ...currentSettings.windowState,
+          ...settings.windowState,
+        },
+        preferences: {
+          ...currentSettings.preferences,
+          ...settings.preferences,
+        },
+      }
       
       // Notify all windows about settings change
       BrowserWindow.getAllWindows().forEach((window) => {

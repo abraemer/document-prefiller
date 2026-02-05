@@ -86,7 +86,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - All interfaces match the schemas in PLAN.md
 - **Dependencies**: 1.2
 
-### 2.2 Create Shared Types Package
+### [x] 2.2 Create Shared Types Package
 - **Description**: Create a shared types module accessible by both main and renderer processes
 - **Validation Criteria**:
   - `src/shared/types/index.ts` exists
