@@ -153,6 +153,7 @@
                             </v-list-item-title>
                             <template #append>
                               <v-text-field
+                                :ref="(el) => setMarkerInputRef(el, marker.identifier)"
                                 v-model="marker.value"
                                 variant="outlined"
                                 density="compact"
@@ -161,6 +162,8 @@
                                 hide-details
                                 style="max-width: 300px"
                                 @update:model-value="handleMarkerValueChange(marker)"
+                                @keydown.enter.prevent="handleEnterKey(marker.identifier)"
+                                @keydown.tab="handleTabKey($event, marker.identifier)"
                               />
                             </template>
                           </v-list-item>
@@ -393,7 +396,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import type { Marker } from '@/shared/types';
 import { DEFAULT_PREFIX } from '@/shared/constants';
 import { useValidation } from './composables/useValidation';
@@ -415,6 +418,7 @@ const {
   markers,
   initializeWithSavedState,
   updateMarkerValue,
+  saveMarkers,
 } = useMarkers();
 
 const {
@@ -459,6 +463,9 @@ const warningTitle = ref<string>('Warning');
 
 // Validation state
 const prefixValidationErrors = ref<string[]>([]);
+
+// Keyboard navigation state
+const markerInputRefs = ref<Map<string, HTMLInputElement>>(new Map());
 
 // ============================================================================
 // COMPUTED
@@ -658,6 +665,98 @@ function getMarkerStatusIcon(status: string): string {
 }
 
 /**
+ * Set marker input ref
+ */
+function setMarkerInputRef(el: unknown, identifier: string): void {
+  if (el && typeof el === 'object' && 'focus' in el) {
+    markerInputRefs.value.set(identifier, el as HTMLInputElement);
+  }
+}
+
+/**
+ * Handle Enter key press on marker input
+ * Moves focus to the next marker input
+ */
+function handleEnterKey(currentIdentifier: string): void {
+  const markerIndex = markers.value.findIndex(m => m.identifier === currentIdentifier);
+  if (markerIndex !== -1 && markerIndex < markers.value.length - 1) {
+    const nextMarker = markers.value[markerIndex + 1];
+    const nextInput = markerInputRefs.value.get(nextMarker.identifier);
+    if (nextInput) {
+      nextTick(() => {
+        nextInput.focus();
+      });
+    }
+  }
+}
+
+/**
+ * Handle Tab key press on marker input
+ * Allows default Tab behavior but manages focus
+ */
+function handleTabKey(_event: KeyboardEvent, _currentIdentifier: string): void {
+  // Let the default Tab behavior work
+  // Shift+Tab is handled automatically by the browser
+  // The parameters are kept for future enhancements
+}
+
+/**
+ * Handle global keyboard shortcuts
+ */
+function handleGlobalKeydown(event: KeyboardEvent): void {
+  // Ctrl/Cmd+S - Save markers
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault();
+    saveMarkers();
+  }
+  
+  // Ctrl/Cmd+O - Open folder
+  if ((event.ctrlKey || event.metaKey) && event.key === 'o') {
+    event.preventDefault();
+    handleSelectFolder();
+  }
+  
+  // Ctrl/Cmd+R - Replace
+  if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+    event.preventDefault();
+    if (canReplace.value) {
+      handleReplace();
+    }
+  }
+  
+  // Escape - Close overlays/dialogs
+  if (event.key === 'Escape') {
+    if (isLoading.value) {
+      // Don't allow closing loading overlay
+      return;
+    }
+    if (showError.value) {
+      showError.value = false;
+    }
+    if (showSuccess.value) {
+      showSuccess.value = false;
+    }
+    if (showWarning.value) {
+      showWarning.value = false;
+    }
+  }
+}
+
+/**
+ * Focus first marker input
+ */
+async function focusFirstMarkerInput(): Promise<void> {
+  await nextTick();
+  if (markers.value.length > 0) {
+    const firstMarker = markers.value[0];
+    const firstInput = markerInputRefs.value.get(firstMarker.identifier);
+    if (firstInput) {
+      firstInput.focus();
+    }
+  }
+}
+
+/**
  * Scan folder for documents and markers
  */
 async function scanFolder(): Promise<void> {
@@ -728,6 +827,9 @@ async function scanFolder(): Promise<void> {
     showSuccess.value = true;
     successTitle.value = 'Scan Complete';
     successMessage.value = `Found ${result.documents.length} document${result.documents.length !== 1 ? 's' : ''} with ${scanResult.markers.length} marker${scanResult.markers.length !== 1 ? 's' : ''}.`;
+    
+    // Focus first marker input after scan
+    await focusFirstMarkerInput();
   } catch (error) {
     showError.value = true;
     errorTitle.value = 'Scan Failed';
@@ -807,11 +909,18 @@ onMounted(async () => {
     
     // Auto-scan the last folder
     await scanFolder();
+    
+    // Focus first marker input after scan
+    await focusFirstMarkerInput();
   }
+  
+  // Add global keyboard event listener
+  window.addEventListener('keydown', handleGlobalKeydown);
 });
 
 onUnmounted(() => {
-  // Cleanup if needed
+  // Remove global keyboard event listener
+  window.removeEventListener('keydown', handleGlobalKeydown);
 });
 </script>
 

@@ -504,7 +504,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Integration tests pass
 - **Dependencies**: 3.11, 6.4
 
-### 7.2 Implement Folder Selection Flow
+### [x] 7.2 Implement Folder Selection Flow
 - **Description**: Complete flow for selecting a folder
 - **Validation Criteria**:
   - Folder dialog opens on app launch (if no saved folder)
@@ -515,7 +515,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Documents are scanned on folder selection
 - **Dependencies**: 7.1, 5.2, 6.2
 
-### 7.3 Implement Document Scanning Flow
+### [x] 7.3 Implement Document Scanning Flow
 - **Description**: Complete flow for scanning documents and detecting markers
 - **Validation Criteria**:
   - Documents are scanned on folder open
@@ -527,7 +527,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Loading state is shown during scan
 - **Dependencies**: 7.2, 5.3, 5.5, 6.1, 6.2
 
-### 7.4 Implement Value Entry Flow
+### [x] 7.4 Implement Value Entry Flow
 - **Description**: Complete flow for entering replacement values
 - **Validation Criteria**:
   - Marker inputs are displayed
@@ -539,7 +539,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - First input is auto-focused
 - **Dependencies**: 7.3, 5.4, 6.1
 
-### 7.5 Implement Replacement Flow
+### [x] 7.5 Implement Replacement Flow
 - **Description**: Complete flow for replacing markers in documents
 - **Validation Criteria**:
   - "Replace" button triggers output folder dialog
@@ -551,7 +551,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Removed markers are cleaned up from save file
 - **Dependencies**: 7.4, 4.4, 4.6, 6.4
 
-### 7.6 Add Auto-Save Functionality
+### [x] 7.6 Add Auto-Save Functionality
 - **Description**: Implement automatic saving of marker values
 - **Validation Criteria**:
   - Values are saved on input blur
@@ -561,7 +561,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Multiple rapid changes only trigger one save
 - **Dependencies**: 7.4, 6.5
 
-### 7.7 Implement Window State Persistence
+### [x] 7.7 Implement Window State Persistence
 - **Description**: Save and restore window size and position
 - **Validation Criteria**:
   - Window size is saved on resize
@@ -571,7 +571,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Window fits within screen bounds on restore
 - **Dependencies**: 3.7, 6.3
 
-### 7.8 Add Keyboard Navigation
+### [x] 7.8 Add Keyboard Navigation
 - **Description**: Implement keyboard shortcuts and navigation
 - **Validation Criteria**:
   - Tab moves between marker inputs
