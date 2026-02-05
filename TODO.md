@@ -37,16 +37,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Basic Vuetify component renders without errors
 - **Dependencies**: 1.1
 
-### 1.4 Set Up Vuetify 3 Integration
-- **Description**: Install and configure Vuetify 3 for the Vue.js renderer process
-- **Validation Criteria**:
-  - Vuetify 3 is installed in dependencies
-  - Vuetify plugin is registered in renderer entry point
-  - Vuetify styles are imported
-  - Basic Vuetify component renders without errors
-- **Dependencies**: 1.1
-
-### 1.5 Configure Vitest for Testing
+### [x] 1.4 Configure Vitest for Testing
 - **Description**: Set up Vitest for unit and component testing
 - **Validation Criteria**:
   - Vitest is installed in dev dependencies
@@ -55,7 +46,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Sample test runs successfully
 - **Dependencies**: 1.1, 1.2
 
-### 1.6 Create Basic Project Structure
+### 1.5 Create Basic Project Structure
 - **Description**: Create the directory structure as defined in PLAN.md section 7.1
 - **Validation Criteria**:
   - All directories from PLAN.md section 7.1 are created
@@ -63,7 +54,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Empty placeholder files exist where needed
 - **Dependencies**: 1.1
 
-### 1.7 Set Up Development and Build Scripts
+### 1.6 Set Up Development and Build Scripts
 - **Description**: Configure npm scripts for development, building, and testing
 - **Validation Criteria**:
   - `package.json` contains scripts: `dev`, `build`, `preview`, `test`
@@ -72,7 +63,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Test suite runs with `npm run test`
 - **Dependencies**: 1.1, 1.5
 
-### 1.8 Configure Electron Preload Script and Context Bridge
+### 1.7 Configure Electron Preload Script and Context Bridge
 - **Description**: Set up the preload script to securely expose APIs to renderer process
 - **Validation Criteria**:
   - `src/preload/index.ts` exists
