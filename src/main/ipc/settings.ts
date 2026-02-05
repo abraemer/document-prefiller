@@ -10,14 +10,11 @@ import type { AppSettings, SaveSettingsRequest, SaveSettingsResponse } from '../
  * Default settings
  */
 const DEFAULT_SETTINGS: AppSettings = {
-  selectedFolder: null,
-  markers: [],
   windowState: {
     width: 1200,
     height: 800,
-    x: null,
-    y: null,
   },
+  preferences: {},
 }
 
 /**
