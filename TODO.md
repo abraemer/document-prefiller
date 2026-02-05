@@ -128,7 +128,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
 
 ## Phase 3: Main Process - File System Operations
 
-### 3.1 Implement Folder Scanning Logic
+### [x] 3.1 Implement Folder Scanning Logic
 - **Description**: Create a service to scan folders for .docx files
 - **Validation Criteria**:
   - `src/main/services/scanner.ts` exists
