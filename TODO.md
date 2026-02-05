@@ -201,7 +201,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Window state is saved on app close
 - **Dependencies**: 2.1
 
-### 3.8 Set Up IPC Handler for Folder Operations
+### [x] 3.8 Set Up IPC Handler for Folder Operations
 - **Description**: Create IPC handlers for folder scanning and selection
 - **Validation Criteria**:
   - `src/main/ipc/folder.ts` exists
@@ -212,7 +212,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for IPC handlers
 - **Dependencies**: 3.1, 3.3, 2.3
 
-### 3.9 Set Up IPC Handler for Document Operations
+### [x] 3.9 Set Up IPC Handler for Document Operations
 - **Description**: Create IPC handlers for document replacement operations
 - **Validation Criteria**:
   - `src/main/ipc/document.ts` exists
@@ -223,7 +223,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for IPC handlers
 - **Dependencies**: 3.4, 2.3
 
-### 3.10 Set Up IPC Handler for Settings Operations
+### [x] 3.10 Set Up IPC Handler for Settings Operations
 - **Description**: Create IPC handlers for settings and window state
 - **Validation Criteria**:
   - `src/main/ipc/settings.ts` exists
@@ -234,7 +234,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for IPC handlers
 - **Dependencies**: 3.5, 3.7, 2.3
 
-### 3.11 Register All IPC Handlers
+### [x] 3.11 Register All IPC Handlers
 - **Description**: Create central IPC handler registration
 - **Validation Criteria**:
   - `src/main/ipc/handlers.ts` exists

@@ -3,13 +3,17 @@
  * Handles document replacement operations
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron';
 import type {
   ReplaceDocumentsRequest,
   ReplaceDocumentsResponse,
   GetDocumentsRequest,
   GetDocumentsResponse,
-} from '../../shared/types'
+} from '../../shared/types';
+import { replaceMarkers } from '../services/replacer';
+import { scanFolder } from '../services/scanner';
+import { DEFAULT_PREFIX } from '../../shared/constants';
+import * as path from 'path';
 
 /**
  * Register document operation handlers
@@ -19,54 +23,137 @@ export function registerDocumentHandlers() {
    * Handle document replacement
    * Replaces markers in documents with their corresponding values
    */
-  ipcMain.handle('document:replace', async (_event, request: ReplaceDocumentsRequest): Promise<ReplaceDocumentsResponse> => {
+  ipcMain.handle('document:replace', async (event, request: ReplaceDocumentsRequest): Promise<ReplaceDocumentsResponse> => {
     try {
-      const { folderPath, markers } = request
-      
-      // TODO: Implement actual document replacement logic
-      // This will use the replacer service to replace markers in documents
-      
-      console.log('Replacing documents in folder:', folderPath)
-      console.log('Markers:', markers)
-      
-      // Placeholder response
-      return {
-        success: true,
-        processed: 0,
+      const { folderPath, markers } = request;
+
+      // Validate folder path
+      if (!folderPath || typeof folderPath !== 'string') {
+        return {
+          success: false,
+          processed: 0,
+          error: 'Invalid folder path provided',
+        };
       }
+
+      // Validate markers
+      if (!Array.isArray(markers) || markers.length === 0) {
+        return {
+          success: false,
+          processed: 0,
+          error: 'No markers provided for replacement',
+        };
+      }
+
+      // Convert markers to replacement values
+      const values: Record<string, string> = {};
+      let prefix = DEFAULT_PREFIX;
+
+      for (const marker of markers) {
+        if (!marker.enabled) {
+          continue; // Skip disabled markers
+        }
+
+        // Use the first marker's prefix
+        if (prefix === DEFAULT_PREFIX && marker.prefix) {
+          prefix = marker.prefix;
+        }
+
+        values[marker.id] = marker.name;
+      }
+
+      // Create output folder path
+      const outputFolder = path.join(folderPath, 'output');
+
+      // Create replacement request
+      const replacementRequest = {
+        sourceFolder: folderPath,
+        outputFolder,
+        values,
+        prefix,
+      };
+
+      // Perform replacement with progress tracking
+      const result = await replaceMarkers(replacementRequest, (progress) => {
+        // Send progress event to renderer
+        BrowserWindow.getAllWindows().forEach((window) => {
+          window.webContents.send('progress:event', {
+            ...progress,
+            isComplete: progress.progress === 100,
+          });
+        });
+      });
+
+      return {
+        success: result.success,
+        processed: result.processed,
+        error: result.errorMessage,
+      };
     } catch (error) {
-      console.error('Error replacing documents:', error)
+      console.error('Error replacing documents:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Send error event to renderer
+      BrowserWindow.getAllWindows().forEach((window) => {
+        window.webContents.send('progress:event', {
+          operation: 'replace',
+          progress: 0,
+          isComplete: true,
+        });
+      });
+
       return {
         success: false,
         processed: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
+        error: errorMessage,
+      };
     }
-  })
+  });
 
   /**
    * Handle getting documents
    * Retrieves documents from a folder
    */
-  ipcMain.handle('document:get', async (_event, request: GetDocumentsRequest): Promise<GetDocumentsResponse> => {
+  ipcMain.handle('document:get', async (event, request: GetDocumentsRequest): Promise<GetDocumentsResponse> => {
     try {
-      const { folderPath } = request
-      
-      // TODO: Implement actual document retrieval logic
-      // This will use the scanner service to get documents
-      
-      console.log('Getting documents from folder:', folderPath)
-      
-      // Placeholder response
-      return {
-        documents: [],
+      const { folderPath } = request;
+
+      // Validate folder path
+      if (!folderPath || typeof folderPath !== 'string') {
+        return {
+          documents: [],
+          error: 'Invalid folder path provided',
+        };
       }
+
+      // Scan the folder to get documents
+      const scanResult = await scanFolder(folderPath, DEFAULT_PREFIX);
+
+      // Convert scan result to response format
+      const documents = scanResult.documents.map((docName) => {
+        const docPath = path.join(folderPath, docName);
+        const markers = scanResult.markers
+          .filter((marker) => marker.documents.includes(docName))
+          .map((marker) => marker.fullMarker);
+
+        return {
+          path: docPath,
+          name: docName,
+          markers,
+        };
+      });
+
+      return {
+        documents,
+      };
     } catch (error) {
-      console.error('Error getting documents:', error)
+      console.error('Error getting documents:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       return {
         documents: [],
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
+        error: errorMessage,
+      };
     }
-  })
+  });
 }
