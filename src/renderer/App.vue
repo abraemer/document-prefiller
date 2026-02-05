@@ -206,7 +206,7 @@
                         >
                           <v-list-item
                             v-for="doc in documents"
-                            :key="doc"
+                            :key="doc.name"
                             class="px-4 py-2"
                           >
                             <template #prepend>
@@ -217,7 +217,7 @@
                               />
                             </template>
                             <v-list-item-title class="text-body-1">
-                              {{ doc }}
+                              {{ doc.name }}
                             </v-list-item-title>
                           </v-list-item>
                         </v-list>
@@ -393,13 +393,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Marker } from '@/shared/types';
 import { DEFAULT_PREFIX } from '@/shared/constants';
 import { useValidation } from './composables/useValidation';
+import { useMarkers } from './composables/useMarkers';
+import { useDocuments } from './composables/useDocuments';
+import { useSettings } from './composables/useSettings';
 
 // ============================================================================
-// VALIDATION
+// COMPOSABLES
 // ============================================================================
 
 const { 
@@ -408,14 +411,29 @@ const {
   getPrefixRules,
 } = useValidation();
 
+const {
+  markers,
+  initializeWithSavedState,
+  updateMarkerValue,
+} = useMarkers();
+
+const {
+  documents,
+  loadFromScanResult: loadDocumentsFromScanResult,
+} = useDocuments();
+
+const {
+  settings,
+  loadSettings,
+  updateLastFolder,
+} = useSettings();
+
 // ============================================================================
 // STATE
 // ============================================================================
 
 const currentFolder = ref<string>('');
 const markerPrefix = ref<string>(DEFAULT_PREFIX);
-const markers = ref<Marker[]>([]);
-const documents = ref<string[]>([]);
 
 // Loading state
 const isLoading = ref<boolean>(false);
@@ -473,15 +491,19 @@ async function handleSelectFolder(): Promise<void> {
     loadingMessage.value = 'Selecting folder...';
     showProgress.value = false;
 
-    // TODO: Implement folder selection via IPC
-    // const result = await window.electron.ipcRenderer.invoke('select-folder');
-    // if (result.success) {
-    //   currentFolder.value = result.folder;
-    //   await scanFolder();
-    // }
-
-    // Placeholder for now
-    console.log('Select folder clicked');
+    // Use IPC to select folder
+    const result = await window.api.folder.selectFolder();
+    
+    if (result.folderPath) {
+      currentFolder.value = result.folderPath;
+      markerPrefix.value = DEFAULT_PREFIX;
+      
+      // Update settings with last folder
+      updateLastFolder(result.folderPath);
+      
+      // Scan the folder for documents and markers
+      await scanFolder();
+    }
   } catch (error) {
     showError.value = true;
     errorTitle.value = 'Folder Selection Failed';
@@ -501,12 +523,13 @@ async function handlePrefixChange(newPrefix: string): Promise<void> {
     prefixValidationErrors.value = result.errors;
 
     if (newPrefix && currentFolder.value) {
+      markerPrefix.value = newPrefix;
       isLoading.value = true;
       loadingMessage.value = 'Rescanning documents...';
       showProgress.value = false;
 
-      // TODO: Implement rescan with new prefix via IPC
-      // await scanFolder();
+      // Rescan with new prefix
+      await scanFolder();
     }
   } catch (error) {
     showError.value = true;
@@ -527,8 +550,8 @@ async function handleRefresh(): Promise<void> {
       loadingMessage.value = 'Scanning documents...';
       showProgress.value = false;
 
-      // TODO: Implement refresh via IPC
-      // await scanFolder();
+      // Rescan folder
+      await scanFolder();
     }
   } catch (error) {
     showError.value = true;
@@ -543,8 +566,8 @@ async function handleRefresh(): Promise<void> {
  * Handle marker value change
  */
 function handleMarkerValueChange(marker: Marker): void {
-  // TODO: Implement auto-save of marker values
-  console.log('Marker value changed:', marker.identifier, marker.value);
+  // Update marker value in composable
+  updateMarkerValue(marker.identifier, marker.value);
 }
 
 /**
@@ -569,22 +592,31 @@ async function handleReplace(): Promise<void> {
     progressValue.value = 0;
     progressDetails.value = 'Preparing documents...';
 
-    // TODO: Implement replacement via IPC
-    // const result = await window.electron.ipcRenderer.invoke('replace-documents', {
-    //   folder: currentFolder.value,
-    //   markers: markers.value,
-    // });
+    // Convert markers to DocumentMarker format for IPC
+    const documentMarkers = markers.value
+      .filter(m => m.status !== 'removed')
+      .map(m => ({
+        id: m.identifier,
+        name: m.value,
+        prefix: markerPrefix.value,
+        enabled: true,
+      }));
 
-    // Placeholder for now - simulate progress
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      progressValue.value = i;
-      progressDetails.value = `Processing document ${Math.floor(i / 10) + 1} of 10...`;
+    // Use IPC to replace documents
+    const result = await window.api.document.replaceDocuments(
+      currentFolder.value,
+      documentMarkers
+    );
+
+    if (result.success) {
+      showSuccess.value = true;
+      successTitle.value = 'Replacement Complete';
+      successMessage.value = `Successfully replaced markers in ${result.processed} document${result.processed !== 1 ? 's' : ''}.`;
+    } else {
+      showError.value = true;
+      errorTitle.value = 'Replacement Failed';
+      errorMessage.value = result.error || 'Failed to replace markers. Please check the documents and try again.';
     }
-
-    showSuccess.value = true;
-    successTitle.value = 'Replacement Complete';
-    successMessage.value = `Successfully replaced markers in ${documents.value.length} document${documents.value.length !== 1 ? 's' : ''}.`;
   } catch (error) {
     showError.value = true;
     errorTitle.value = 'Replacement Failed';
@@ -628,16 +660,81 @@ function getMarkerStatusIcon(status: string): string {
 /**
  * Scan folder for documents and markers
  */
-async function _scanFolder(): Promise<void> {
-  // TODO: Implement folder scanning via IPC
-  // const result = await window.electron.ipcRenderer.invoke('scan-folder', {
-  //   folder: currentFolder.value,
-  //   prefix: markerPrefix.value,
-  // });
-  // if (result.success) {
-  //   documents.value = result.documents;
-  //   markers.value = result.markers;
-  // }
+async function scanFolder(): Promise<void> {
+  if (!currentFolder.value) {
+    showError.value = true;
+    errorTitle.value = 'No Folder Selected';
+    errorMessage.value = 'Please select a folder first.';
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Scanning documents...';
+    showProgress.value = false;
+
+    // Use IPC to scan folder
+    const result = await window.api.folder.scanFolder(currentFolder.value);
+    
+    if (result.error) {
+      showError.value = true;
+      errorTitle.value = 'Scan Failed';
+      errorMessage.value = result.error;
+      return;
+    }
+
+    // Build scan result from IPC response
+    const scanResult = {
+      folder: currentFolder.value,
+      documents: result.documents.map(doc => doc.name),
+      markers: [] as Marker[],
+      prefix: markerPrefix.value,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Extract markers from documents
+    const markerMap = new Map<string, Marker>();
+    for (const doc of result.documents) {
+      for (const markerText of doc.markers) {
+        // Extract identifier from full marker (remove prefix)
+        const identifier = markerText.startsWith(markerPrefix.value) 
+          ? markerText.substring(markerPrefix.value.length) 
+          : markerText;
+        
+        if (!markerMap.has(identifier)) {
+          markerMap.set(identifier, {
+            identifier,
+            fullMarker: markerText,
+            value: '',
+            status: 'new' as const,
+            documents: [],
+          });
+        }
+        const marker = markerMap.get(identifier);
+        if (marker) {
+          marker.documents.push(doc.name);
+        }
+      }
+    }
+    
+    scanResult.markers = Array.from(markerMap.values());
+
+    // Initialize markers with saved state
+    await initializeWithSavedState(scanResult);
+    
+    // Load documents
+    loadDocumentsFromScanResult(scanResult);
+
+    showSuccess.value = true;
+    successTitle.value = 'Scan Complete';
+    successMessage.value = `Found ${result.documents.length} document${result.documents.length !== 1 ? 's' : ''} with ${scanResult.markers.length} marker${scanResult.markers.length !== 1 ? 's' : ''}.`;
+  } catch (error) {
+    showError.value = true;
+    errorTitle.value = 'Scan Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to scan folder. Please try again.';
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 /**
@@ -694,16 +791,27 @@ function _clearNotifications(): void {
 // LIFECYCLE
 // ============================================================================
 
-onMounted(() => {
+onMounted(async () => {
   // Validate initial prefix
   const result = validatePrefix(markerPrefix.value);
   prefixValidationErrors.value = result.errors;
 
-  // TODO: Load last folder from settings
-  // if (lastFolder) {
-  //   currentFolder.value = lastFolder;
-  //   scanFolder();
-  // }
+  // Load settings from main process
+  await loadSettings();
+
+  // Load last folder from settings if available
+  const lastFolder = settings.value.lastFolder;
+  if (lastFolder) {
+    currentFolder.value = lastFolder;
+    markerPrefix.value = settings.value.preferences.defaultPrefix || DEFAULT_PREFIX;
+    
+    // Auto-scan the last folder
+    await scanFolder();
+  }
+});
+
+onUnmounted(() => {
+  // Cleanup if needed
 });
 </script>
 
