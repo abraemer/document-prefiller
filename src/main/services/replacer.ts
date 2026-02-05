@@ -24,6 +24,24 @@ export class ReplacementError extends Error {
 }
 
 /**
+ * Progress information for batch document processing
+ */
+export interface BatchProgress {
+  /** Current operation phase */
+  phase: 'copying' | 'processing' | 'complete';
+  /** Progress percentage (0-100) */
+  progress: number;
+  /** Current file being processed */
+  currentItem?: string;
+  /** Total number of files to process */
+  total?: number;
+  /** Number of files completed */
+  completed?: number;
+  /** Number of files with errors */
+  errors?: number;
+}
+
+/**
  * Replace markers in documents
  *
  * @param request - Replacement request containing source folder, output folder, and values
@@ -123,6 +141,177 @@ export async function replaceMarkers(
     }
     throw new ReplacementError(
       `Failed to replace markers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error instanceof Error ? error : undefined
+    );
+  }
+}
+
+/**
+ * Process multiple documents in batch with enhanced progress tracking
+ *
+ * This function provides efficient batch processing of multiple documents with:
+ * - Detailed progress tracking through different phases
+ * - Graceful error handling for individual documents
+ * - Aggregated results from all documents
+ * - Performance optimizations for large batches
+ *
+ * @param request - Replacement request containing source folder, output folder, and values
+ * @param onProgress - Optional progress callback with detailed batch progress information
+ * @returns Promise that resolves with replacement result
+ */
+export async function processDocumentsBatch(
+  request: ReplacementRequest,
+  onProgress?: (progress: BatchProgress) => void
+): Promise<ReplacementResult> {
+  const { sourceFolder, outputFolder, values, prefix } = request;
+
+  try {
+    // Validate source folder exists
+    try {
+      await fs.access(sourceFolder, fs.constants.R_OK);
+    } catch {
+      throw new ReplacementError(`Source folder not accessible: ${sourceFolder}`);
+    }
+
+    // Create output folder if it doesn't exist
+    try {
+      await fs.mkdir(outputFolder, { recursive: true });
+    } catch (error) {
+      throw new ReplacementError(
+        `Failed to create output folder: ${outputFolder}`,
+        error instanceof Error ? error : undefined
+      );
+    }
+
+    // Find all .docx files in source folder
+    const files = await fs.readdir(sourceFolder);
+    const docxFiles = files.filter(
+      (file) => path.extname(file).toLowerCase() === DOCUMENT_EXTENSION
+    );
+
+    if (docxFiles.length === 0) {
+      if (onProgress) {
+        onProgress({
+          phase: 'complete',
+          progress: 100,
+          total: 0,
+          completed: 0,
+          errors: 0,
+        });
+      }
+      return {
+        success: true,
+        processed: 0,
+        errors: 0,
+        processedDocuments: [],
+        failedDocuments: [],
+      };
+    }
+
+    // Phase 1: Copy files to output folder (50% of progress)
+    if (onProgress) {
+      onProgress({
+        phase: 'copying',
+        progress: 0,
+        currentItem: 'Preparing to copy files...',
+        total: docxFiles.length,
+        completed: 0,
+        errors: 0,
+      });
+    }
+
+    const copyResult = await copyDocxFiles(sourceFolder, outputFolder, {
+      overwrite: true,
+      preserveMetadata: true,
+      onProgress: (progress: CopyProgress) => {
+        if (onProgress) {
+          // Copy phase is 50% of total progress
+          const copyProgress = progress.percentage * 0.5;
+          onProgress({
+            phase: 'copying',
+            progress: copyProgress,
+            currentItem: progress.currentFile,
+            total: progress.totalFiles,
+            completed: progress.currentFileIndex,
+            errors: 0,
+          });
+        }
+      },
+    });
+
+    if (!copyResult.success) {
+      throw new ReplacementError('Failed to copy documents to output folder');
+    }
+
+    // Phase 2: Process each document and replace markers (50% of progress)
+    if (onProgress) {
+      onProgress({
+        phase: 'processing',
+        progress: 50,
+        currentItem: 'Starting marker replacement...',
+        total: docxFiles.length,
+        completed: 0,
+        errors: 0,
+      });
+    }
+
+    const processedDocuments: string[] = [];
+    const failedDocuments: Array<{ path: string; error: string }> = [];
+    let processed = 0;
+
+    for (let i = 0; i < docxFiles.length; i++) {
+      const file = docxFiles[i];
+      const outputPath = path.join(outputFolder, file);
+
+      try {
+        await replaceMarkersInFile(outputPath, values, prefix);
+        processedDocuments.push(outputPath);
+        processed++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        failedDocuments.push({ path: outputPath, error: errorMessage });
+        console.error(`Failed to replace markers in ${file}:`, errorMessage);
+      }
+
+      // Report progress for processing phase
+      if (onProgress) {
+        // Processing phase is 50% of total progress (from 50% to 100%)
+        const processingProgress = 50 + ((i + 1) / docxFiles.length) * 50;
+        onProgress({
+          phase: 'processing',
+          progress: processingProgress,
+          currentItem: file,
+          total: docxFiles.length,
+          completed: i + 1,
+          errors: failedDocuments.length,
+        });
+      }
+    }
+
+    // Phase 3: Complete
+    if (onProgress) {
+      onProgress({
+        phase: 'complete',
+        progress: 100,
+        total: docxFiles.length,
+        completed: processed,
+        errors: failedDocuments.length,
+      });
+    }
+
+    return {
+      success: failedDocuments.length === 0,
+      processed,
+      errors: failedDocuments.length,
+      processedDocuments,
+      failedDocuments,
+    };
+  } catch (error) {
+    if (error instanceof ReplacementError) {
+      throw error;
+    }
+    throw new ReplacementError(
+      `Failed to process documents: ${error instanceof Error ? error.message : 'Unknown error'}`,
       error instanceof Error ? error : undefined
     );
   }
@@ -379,4 +568,21 @@ export async function processDocuments(
   onProgress?: (progress: { operation: 'replace'; progress: number; currentItem?: string; total?: number; completed?: number }) => void
 ): Promise<ReplacementResult> {
   return replaceMarkers(request, onProgress);
+}
+
+/**
+ * Process documents with enhanced batch processing
+ *
+ * This is the recommended function for batch document processing as it provides
+ * detailed progress tracking and better error handling.
+ *
+ * @param request - Replacement request
+ * @param onProgress - Optional progress callback with detailed batch progress
+ * @returns Promise that resolves with replacement result
+ */
+export async function processDocumentsWithProgress(
+  request: ReplacementRequest,
+  onProgress?: (progress: BatchProgress) => void
+): Promise<ReplacementResult> {
+  return processDocumentsBatch(request, onProgress);
 }
