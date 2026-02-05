@@ -11,6 +11,20 @@
       <span class="text-h6">Detected Markers</span>
       <v-spacer />
       <v-chip
+        v-if="saving"
+        color="info"
+        size="small"
+        class="ml-2"
+      >
+        <v-progress-circular
+          indeterminate
+          size="12"
+          width="2"
+          class="mr-1"
+        />
+        Saving...
+      </v-chip>
+      <v-chip
         v-if="!loading"
         :color="markerCountColor"
         size="small"
@@ -34,6 +48,18 @@
           size="48"
         />
       </div>
+
+      <!-- Error State -->
+      <v-alert
+        v-else-if="error"
+        type="error"
+        variant="tonal"
+        class="ma-4"
+        density="compact"
+        closable
+      >
+        {{ error }}
+      </v-alert>
 
       <!-- Empty State -->
       <div
@@ -207,6 +233,10 @@ interface Props {
   markers: Marker[];
   /** Whether the component is in a loading state */
   loading?: boolean;
+  /** Error message to display */
+  error?: string;
+  /** Whether the component is in a saving state */
+  saving?: boolean;
 }
 
 interface Emits {
@@ -214,10 +244,14 @@ interface Emits {
   (e: 'value-change', identifier: string, value: string): void;
   /** Emitted when Enter key is pressed in a marker input */
   (e: 'enter-pressed', identifier: string): void;
+  /** Emitted when a marker value is saved */
+  (e: 'value-saved', identifier: string): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
+  error: '',
+  saving: false,
 });
 
 const emit = defineEmits<Emits>();

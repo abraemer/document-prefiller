@@ -39,6 +39,18 @@
         </v-list-item>
       </v-list>
 
+      <!-- Error State -->
+      <v-alert
+        v-else-if="error"
+        type="error"
+        variant="tonal"
+        class="ma-4"
+        density="compact"
+        closable
+      >
+        {{ error }}
+      </v-alert>
+
       <!-- Empty State -->
       <v-list
         v-else-if="documents.length === 0"
@@ -99,11 +111,14 @@ interface Props {
   documents?: string[];
   /** Loading state indicator */
   isLoading?: boolean;
+  /** Error message to display */
+  error?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   documents: () => [],
   isLoading: false,
+  error: '',
 });
 
 // ============================================================================

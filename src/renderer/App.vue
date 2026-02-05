@@ -263,15 +263,31 @@
       class="align-center justify-center"
       persistent
     >
-      <v-card class="pa-6 text-center">
+      <v-card
+        class="pa-6 text-center"
+        min-width="400"
+      >
         <v-progress-circular
-          indeterminate
-          size="64"
+          :indeterminate="!showProgress"
+          :model-value="progressValue"
+          :size="64"
           color="primary"
           class="mb-4"
         />
-        <div class="text-h6">
+        <div class="text-h6 mb-2">
           {{ loadingMessage }}
+        </div>
+        <div
+          v-if="showProgress"
+          class="text-body-2 text-grey-darken-1"
+        >
+          {{ progressDetails }}
+        </div>
+        <div
+          v-if="showProgress"
+          class="text-h5 mt-2 primary--text"
+        >
+          {{ progressValue }}%
         </div>
       </v-card>
     </v-overlay>
@@ -280,9 +296,23 @@
     <v-snackbar
       v-model="showError"
       color="error"
-      :timeout="5000"
+      :timeout="8000"
+      location="bottom"
     >
-      {{ errorMessage }}
+      <div class="d-flex align-center">
+        <v-icon
+          icon="mdi-alert-circle"
+          class="mr-2"
+        />
+        <div>
+          <div class="font-weight-medium">
+            {{ errorTitle }}
+          </div>
+          <div class="text-caption">
+            {{ errorMessage }}
+          </div>
+        </div>
+      </div>
       <template #actions>
         <v-btn
           color="white"
@@ -298,14 +328,60 @@
     <v-snackbar
       v-model="showSuccess"
       color="success"
-      :timeout="3000"
+      :timeout="4000"
+      location="bottom"
     >
-      {{ successMessage }}
+      <div class="d-flex align-center">
+        <v-icon
+          icon="mdi-check-circle"
+          class="mr-2"
+        />
+        <div>
+          <div class="font-weight-medium">
+            {{ successTitle }}
+          </div>
+          <div class="text-caption">
+            {{ successMessage }}
+          </div>
+        </div>
+      </div>
       <template #actions>
         <v-btn
           color="white"
           variant="text"
           @click="showSuccess = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
+
+    <!-- Warning Snackbar -->
+    <v-snackbar
+      v-model="showWarning"
+      color="warning"
+      :timeout="6000"
+      location="bottom"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          icon="mdi-alert"
+          class="mr-2"
+        />
+        <div>
+          <div class="font-weight-medium">
+            {{ warningTitle }}
+          </div>
+          <div class="text-caption">
+            {{ warningMessage }}
+          </div>
+        </div>
+      </div>
+      <template #actions>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="showWarning = false"
         >
           Close
         </v-btn>
@@ -331,14 +407,24 @@ const documents = ref<string[]>([]);
 // Loading state
 const isLoading = ref<boolean>(false);
 const loadingMessage = ref<string>('Loading...');
+const showProgress = ref<boolean>(false);
+const progressValue = ref<number>(0);
+const progressDetails = ref<string>('');
 
 // Error state
 const showError = ref<boolean>(false);
 const errorMessage = ref<string>('');
+const errorTitle = ref<string>('Error');
 
 // Success state
 const showSuccess = ref<boolean>(false);
 const successMessage = ref<string>('');
+const successTitle = ref<string>('Success');
+
+// Warning state
+const showWarning = ref<boolean>(false);
+const warningMessage = ref<string>('');
+const warningTitle = ref<string>('Warning');
 
 // ============================================================================
 // COMPUTED
@@ -365,6 +451,7 @@ async function handleSelectFolder(): Promise<void> {
   try {
     isLoading.value = true;
     loadingMessage.value = 'Selecting folder...';
+    showProgress.value = false;
 
     // TODO: Implement folder selection via IPC
     // const result = await window.electron.ipcRenderer.invoke('select-folder');
@@ -377,7 +464,8 @@ async function handleSelectFolder(): Promise<void> {
     console.log('Select folder clicked');
   } catch (error) {
     showError.value = true;
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to select folder';
+    errorTitle.value = 'Folder Selection Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to select folder. Please try again.';
   } finally {
     isLoading.value = false;
   }
@@ -391,13 +479,15 @@ async function handlePrefixChange(newPrefix: string): Promise<void> {
     if (newPrefix && currentFolder.value) {
       isLoading.value = true;
       loadingMessage.value = 'Rescanning documents...';
+      showProgress.value = false;
 
       // TODO: Implement rescan with new prefix via IPC
       // await scanFolder();
     }
   } catch (error) {
     showError.value = true;
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to update prefix';
+    errorTitle.value = 'Prefix Update Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to update prefix. Please try again.';
   } finally {
     isLoading.value = false;
   }
@@ -411,13 +501,15 @@ async function handleRefresh(): Promise<void> {
     if (currentFolder.value) {
       isLoading.value = true;
       loadingMessage.value = 'Scanning documents...';
+      showProgress.value = false;
 
       // TODO: Implement refresh via IPC
       // await scanFolder();
     }
   } catch (error) {
     showError.value = true;
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to refresh';
+    errorTitle.value = 'Refresh Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to refresh. Please try again.';
   } finally {
     isLoading.value = false;
   }
@@ -438,6 +530,9 @@ async function handleReplace(): Promise<void> {
   try {
     isLoading.value = true;
     loadingMessage.value = 'Replacing markers...';
+    showProgress.value = true;
+    progressValue.value = 0;
+    progressDetails.value = 'Preparing documents...';
 
     // TODO: Implement replacement via IPC
     // const result = await window.electron.ipcRenderer.invoke('replace-documents', {
@@ -445,16 +540,23 @@ async function handleReplace(): Promise<void> {
     //   markers: markers.value,
     // });
 
-    // Placeholder for now
-    console.log('Replace clicked');
-    
+    // Placeholder for now - simulate progress
+    for (let i = 0; i <= 100; i += 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      progressValue.value = i;
+      progressDetails.value = `Processing document ${Math.floor(i / 10) + 1} of 10...`;
+    }
+
     showSuccess.value = true;
-    successMessage.value = 'Replacement completed successfully!';
+    successTitle.value = 'Replacement Complete';
+    successMessage.value = `Successfully replaced markers in ${documents.value.length} document${documents.value.length !== 1 ? 's' : ''}.`;
   } catch (error) {
     showError.value = true;
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to replace markers';
+    errorTitle.value = 'Replacement Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to replace markers. Please check the documents and try again.';
   } finally {
     isLoading.value = false;
+    showProgress.value = false;
   }
 }
 
@@ -501,6 +603,56 @@ async function _scanFolder(): Promise<void> {
   //   documents.value = result.documents;
   //   markers.value = result.markers;
   // }
+}
+
+/**
+ * Show error notification
+ */
+function _showErrorNotification(title: string, message: string): void {
+  errorTitle.value = title;
+  errorMessage.value = message;
+  showError.value = true;
+}
+
+/**
+ * Show success notification
+ */
+function _showSuccessNotification(title: string, message: string): void {
+  successTitle.value = title;
+  successMessage.value = message;
+  showSuccess.value = true;
+}
+
+/**
+ * Show warning notification
+ */
+function _showWarningNotification(title: string, message: string): void {
+  warningTitle.value = title;
+  warningMessage.value = message;
+  showWarning.value = true;
+}
+
+/**
+ * Update loading state with progress
+ */
+function _updateLoadingProgress(message: string, progress?: number, details?: string): void {
+  loadingMessage.value = message;
+  if (progress !== undefined) {
+    showProgress.value = true;
+    progressValue.value = progress;
+  }
+  if (details) {
+    progressDetails.value = details;
+  }
+}
+
+/**
+ * Clear all notifications
+ */
+function _clearNotifications(): void {
+  showError.value = false;
+  showSuccess.value = false;
+  showWarning.value = false;
 }
 
 // ============================================================================

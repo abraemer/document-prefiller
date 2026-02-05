@@ -383,7 +383,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for component
 - **Dependencies**: 5.1
 
-### 5.7 Add Loading States to Components
+### [x] 5.7 Add Loading States to Components
 - **Description**: Implement loading indicators for async operations
 - **Validation Criteria**:
   - Loading spinner is shown during folder scan
@@ -392,7 +392,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Loading states don't block UI interaction unnecessarily
 - **Dependencies**: 5.2, 5.3, 5.5
 
-### 5.8 Add Error States to Components
+### [x] 5.8 Add Error States to Components
 - **Description**: Implement error display and handling in components
 - **Validation Criteria**:
   - Error messages are displayed inline

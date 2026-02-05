@@ -154,6 +154,20 @@ async function handleSelectFolder(): Promise<void> {
 }
 
 /**
+ * Show error message
+ */
+function showError(message: string): void {
+  errorMessage.value = message;
+}
+
+/**
+ * Show validation warning
+ */
+function showValidationWarning(message: string): void {
+  validationWarning.value = message;
+}
+
+/**
  * Validate that the folder contains .docx files
  * @param folderPath - Path to the folder to validate
  */
@@ -199,6 +213,8 @@ function clearMessages(): void {
 
 defineExpose({
   clearMessages,
+  showError,
+  showValidationWarning,
 });
 </script>
 
