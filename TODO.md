@@ -360,7 +360,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for component
 - **Dependencies**: 5.3
 
-### 5.5 Create Document List Component
+### [x] 5.5 Create Document List Component
 - **Description**: Create a component to display scanned documents
 - **Validation Criteria**:
   - `src/renderer/components/DocumentList.vue` exists
