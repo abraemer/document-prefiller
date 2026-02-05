@@ -248,7 +248,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
 
 ## Phase 4: Main Process - Replacement Engine
 
-### 4.1 Research and Select .docx Manipulation Library
+### [x] 4.1 Research and Select .docx Manipulation Library
 - **Description**: Evaluate and select a library for .docx file manipulation
 - **Validation Criteria**:
   - Library is selected and documented
@@ -257,8 +257,9 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Library can write .docx files
   - Library preserves document formatting
 - **Dependencies**: None
+- **Decision**: JSZip (v3.10.1) - See STEP_4.1_RESEARCH.md for detailed analysis
 
-### 4.2 Implement Marker Replacement Algorithm
+### [x] 4.2 Implement Marker Replacement Algorithm
 - **Description**: Create a function to replace markers with values in document text
 - **Validation Criteria**:
   - `replaceMarkers()` function exists in replacer service
@@ -268,7 +269,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for replacement logic
 - **Dependencies**: 4.1, 3.3
 
-### 4.3 Handle Text Replacement While Preserving Formatting
+### [x] 4.3 Handle Text Replacement While Preserving Formatting
 - **Description**: Ensure replacement preserves document formatting and structure
 - **Validation Criteria**:
   - Replacement preserves bold, italic, underline styles

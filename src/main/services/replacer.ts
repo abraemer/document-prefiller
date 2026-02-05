@@ -182,12 +182,39 @@ async function replaceMarkersInFile(
 /**
  * Replace markers in Word document XML
  *
+ * This function handles the complexity of Word's XML structure where text can be
+ * split across multiple <w:t> tags. It uses a two-phase approach:
+ * 1. Extract all text runs and their positions
+ * 2. Replace markers in the concatenated text and rebuild the XML
+ *
  * @param xmlContent - XML content from word/document.xml
  * @param values - Replacement values (key: identifier, value: replacement text)
  * @param prefix - Marker prefix
  * @returns Modified XML content
  */
 function replaceMarkersInXml(
+  xmlContent: string,
+  values: Record<string, string>,
+  prefix: string
+): string {
+  // First, try simple replacement for markers that aren't fragmented
+  let modifiedXml = replaceSimpleMarkers(xmlContent, values, prefix);
+
+  // Then, handle fragmented markers by normalizing text runs
+  modifiedXml = replaceFragmentedMarkers(modifiedXml, values, prefix);
+
+  return modifiedXml;
+}
+
+/**
+ * Replace markers that appear within a single <w:t> tag
+ *
+ * @param xmlContent - XML content
+ * @param values - Replacement values
+ * @param prefix - Marker prefix
+ * @returns Modified XML content
+ */
+function replaceSimpleMarkers(
   xmlContent: string,
   values: Record<string, string>,
   prefix: string
@@ -199,19 +226,120 @@ function replaceMarkersInXml(
     const fullMarker = `${prefix}${identifier}`;
     
     // Replace markers in <w:t> tags (text runs)
-    // We need to be careful to only replace the marker text, not the XML tags
+    // Match: <w:t>...marker...</w:t> or <w:t xml:space="preserve">...marker...</w:t>
     const regex = new RegExp(
       `(<w:t[^>]*>)([^<]*${escapeRegex(fullMarker)}[^<]*)(</w:t>)`,
       'g'
     );
     
     modifiedXml = modifiedXml.replace(regex, (match, openTag, content, closeTag) => {
-      const replacedContent = content.replace(new RegExp(escapeRegex(fullMarker), 'g'), replacement);
+      // If replacement is empty, remove the marker entirely
+      const replacedContent = replacement === '' 
+        ? content.replace(new RegExp(escapeRegex(fullMarker), 'g'), '')
+        : content.replace(new RegExp(escapeRegex(fullMarker), 'g'), escapeXml(replacement));
       return `${openTag}${replacedContent}${closeTag}`;
     });
   }
 
   return modifiedXml;
+}
+
+/**
+ * Replace markers that are fragmented across multiple <w:t> tags
+ *
+ * Word often splits text across multiple runs, especially when formatting is applied.
+ * This function handles cases like: <w:t>REPLACE</w:t><w:t>ME-</w:t><w:t>WORD</w:t>
+ *
+ * @param xmlContent - XML content
+ * @param values - Replacement values
+ * @param prefix - Marker prefix
+ * @returns Modified XML content
+ */
+function replaceFragmentedMarkers(
+  xmlContent: string,
+  values: Record<string, string>,
+  prefix: string
+): string {
+  // Build a list of all markers to search for
+  const markers = Object.keys(values).map(id => `${prefix}${id}`);
+  
+  if (markers.length === 0) {
+    return xmlContent;
+  }
+
+  // Find all <w:r> (run) elements which contain <w:t> (text) elements
+  const runRegex = /<w:r\b[^>]*>.*?<\/w:r>/gs;
+  
+  return xmlContent.replace(runRegex, (runMatch) => {
+    // Extract all text from <w:t> tags within this run
+    const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    let textMatch;
+    const textSegments: Array<{ fullMatch: string; text: string; start: number; end: number }> = [];
+    
+    while ((textMatch = textRegex.exec(runMatch)) !== null) {
+      textSegments.push({
+        fullMatch: textMatch[0],
+        text: textMatch[1],
+        start: textMatch.index,
+        end: textMatch.index + textMatch[0].length
+      });
+    }
+
+    if (textSegments.length === 0) {
+      return runMatch;
+    }
+
+    // Concatenate all text to check for markers
+    const concatenatedText = textSegments.map(seg => seg.text).join('');
+    
+    // Check if any marker exists in the concatenated text
+    let hasMarker = false;
+    for (const marker of markers) {
+      if (concatenatedText.includes(marker)) {
+        hasMarker = true;
+        break;
+      }
+    }
+
+    if (!hasMarker) {
+      return runMatch;
+    }
+
+    // Replace markers in the concatenated text
+    let replacedText = concatenatedText;
+    for (const [identifier, replacement] of Object.entries(values)) {
+      const fullMarker = `${prefix}${identifier}`;
+      const markerRegex = new RegExp(escapeRegex(fullMarker), 'g');
+      replacedText = replacedText.replace(markerRegex, replacement);
+    }
+
+    // If text hasn't changed, return original
+    if (replacedText === concatenatedText) {
+      return runMatch;
+    }
+
+    // Rebuild the run with the replaced text in a single <w:t> tag
+    // Keep the first <w:t> tag's attributes and replace all text segments with one
+    const firstSegment = textSegments[0];
+    const firstTagMatch = firstSegment.fullMatch.match(/<w:t([^>]*)>/);
+    const attributes = firstTagMatch ? firstTagMatch[1] : '';
+    
+    // Build the new text tag
+    const newTextTag = `<w:t${attributes}>${escapeXml(replacedText)}</w:t>`;
+    
+    // Replace all text segments with the new single text tag
+    let modifiedRun = runMatch;
+    
+    // Remove all text segments from the run
+    for (let i = textSegments.length - 1; i >= 0; i--) {
+      const segment = textSegments[i];
+      modifiedRun = modifiedRun.substring(0, segment.start) + 
+                    (i === 0 ? newTextTag : '') + 
+                    modifiedRun.substring(segment.end);
+    }
+
+    return modifiedRun;
+  });
 }
 
 /**
@@ -222,6 +350,21 @@ function replaceMarkersInXml(
  */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Escape special XML characters in a string
+ *
+ * @param str - String to escape
+ * @returns XML-safe string
+ */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 /**
