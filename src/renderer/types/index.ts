@@ -3,7 +3,7 @@
  * TypeScript type definitions for renderer process
  */
 
-import type { AppSettings } from '../../shared/types';
+import type { AppSettings, ReplacementValuesFile } from '../../shared/types';
 
 /**
  * Folder Operations API
@@ -76,6 +76,26 @@ export interface SettingsAPI {
 }
 
 /**
+ * Save File Operations API
+ */
+export interface SaveFileAPI {
+  readSaveFile: (folderPath: string) => Promise<{
+    success: boolean;
+    data?: ReplacementValuesFile;
+    error?: string;
+  }>;
+  writeSaveFile: (folderPath: string, data: ReplacementValuesFile) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  getSaveFileLastModified: (folderPath: string) => Promise<{
+    success: boolean;
+    lastModified?: string;
+    error?: string;
+  }>;
+}
+
+/**
  * Window Operations API
  */
 export interface WindowAPI {
@@ -104,6 +124,7 @@ export interface ElectronAPI {
   folder: FolderAPI;
   document: DocumentAPI;
   settings: SettingsAPI;
+  saveFile: SaveFileAPI;
   window: WindowAPI;
   events: EventAPI;
 }

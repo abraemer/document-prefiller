@@ -5,7 +5,13 @@
 
 import { ipcMain, BrowserWindow, app } from 'electron';
 import type { AppSettings, SaveSettingsRequest, SaveSettingsResponse } from '../../shared/types';
+import type { ReplacementValuesFile } from '../../shared/types/data-models';
 import * as path from 'path';
+import {
+  readSaveFile,
+  writeSaveFile,
+  getSaveFileLastModified,
+} from '../services/storage';
 
 /**
  * Default settings
@@ -154,6 +160,111 @@ export function registerSettingsHandlers() {
       };
     } catch (error) {
       console.error('Error saving settings:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  /**
+   * Handle reading save file
+   * Reads the .replacement-values.json file from a folder
+   */
+  ipcMain.handle('savefile:read', async (event, folderPath: string): Promise<{ success: boolean; data?: ReplacementValuesFile; error?: string }> => {
+    try {
+      if (!folderPath || typeof folderPath !== 'string') {
+        return {
+          success: false,
+          error: 'Invalid folder path provided',
+        };
+      }
+
+      const result = await readSaveFile(folderPath, {
+        createDefaultIfNotFound: false,
+      });
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error,
+      };
+    } catch (error) {
+      console.error('Error reading save file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  /**
+   * Handle writing save file
+   * Writes the .replacement-values.json file to a folder
+   */
+  ipcMain.handle('savefile:write', async (event, folderPath: string, data: ReplacementValuesFile): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!folderPath || typeof folderPath !== 'string') {
+        return {
+          success: false,
+          error: 'Invalid folder path provided',
+        };
+      }
+
+      if (!data || typeof data !== 'object') {
+        return {
+          success: false,
+          error: 'Invalid save file data provided',
+        };
+      }
+
+      const result = await writeSaveFile(folderPath, data, {
+        createBackup: true,
+        atomic: true,
+        updateTimestamp: true,
+      });
+
+      return {
+        success: result.success,
+        error: result.error,
+      };
+    } catch (error) {
+      console.error('Error writing save file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  /**
+   * Handle getting save file last modified time
+   * Returns the last modified timestamp of the save file
+   */
+  ipcMain.handle('savefile:lastModified', async (event, folderPath: string): Promise<{ success: boolean; lastModified?: string; error?: string }> => {
+    try {
+      if (!folderPath || typeof folderPath !== 'string') {
+        return {
+          success: false,
+          error: 'Invalid folder path provided',
+        };
+      }
+
+      const lastModified = await getSaveFileLastModified(folderPath);
+
+      if (lastModified === null) {
+        return {
+          success: false,
+          error: 'Save file not found',
+        };
+      }
+
+      return {
+        success: true,
+        lastModified: lastModified.toISOString(),
+      };
+    } catch (error) {
+      console.error('Error getting save file last modified:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

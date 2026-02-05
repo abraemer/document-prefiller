@@ -193,6 +193,51 @@ export function useMarkers() {
   }
 
   /**
+   * Load saved marker values from the save file
+   * 
+   * @param folderPath - Path to the folder containing the save file
+   * @returns Promise that resolves to the saved values or null if not found
+   */
+  async function loadSavedValues(folderPath: string): Promise<ReplacementValuesFile | null> {
+    try {
+      const response = await window.api.saveFile.readSaveFile(folderPath);
+      
+      if (response.success && response.data) {
+        return response.data;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error loading saved values:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Initialize markers with saved state
+   * Loads saved values from the save file and merges with scan result
+   * 
+   * @param scanResult - The scan result containing detected markers
+   * @returns Promise that resolves to true if initialization was successful
+   */
+  async function initializeWithSavedState(scanResult: ScanResult): Promise<boolean> {
+    try {
+      // Load saved values from the save file
+      const savedValues = await loadSavedValues(scanResult.folder);
+      
+      // Load markers from scan result with saved values
+      loadFromScanResult(scanResult, savedValues || undefined);
+      
+      return true;
+    } catch (error) {
+      console.error('Error initializing with saved state:', error);
+      // Fall back to loading without saved values
+      loadFromScanResult(scanResult);
+      return false;
+    }
+  }
+
+  /**
    * Update marker value
    * 
    * @param identifier - The marker identifier
@@ -330,15 +375,11 @@ export function useMarkers() {
         }
       }
 
-      // Save via IPC
-      const response = await window.api.settings.saveSettings({
-        settings: {
-          lastFolder: currentFolder.value,
-          preferences: {
-            defaultPrefix: currentPrefix.value,
-          },
-        },
-      });
+      // Save to .replacement-values.json file via IPC
+      const response = await window.api.saveFile.writeSaveFile(
+        currentFolder.value,
+        replacementValues
+      );
 
       if (response.success) {
         saveStatus.value = 'saved';
@@ -424,6 +465,8 @@ export function useMarkers() {
 
     // Operations
     loadFromScanResult,
+    loadSavedValues,
+    initializeWithSavedState,
     updateMarkerValue,
     addMarker,
     removeMarker,

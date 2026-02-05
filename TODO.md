@@ -460,7 +460,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for IPC layer
 - **Dependencies**: 2.3, 1.8
 
-### 6.5 Add State Persistence Logic
+### [x] 6.5 Add State Persistence Logic
 - **Description**: Implement auto-save of marker values
 - **Validation Criteria**:
   - Marker values are saved on change

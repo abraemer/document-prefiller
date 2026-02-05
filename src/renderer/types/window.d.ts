@@ -13,6 +13,7 @@ import type {
   SaveSettingsResponse,
   AppSettings,
   DocumentMarker,
+  ReplacementValuesFile,
 } from '../../shared/types';
 
 /**
@@ -37,6 +38,15 @@ interface DocumentAPI {
 interface SettingsAPI {
   getSettings: () => Promise<AppSettings>;
   saveSettings: (settings: AppSettings) => Promise<SaveSettingsResponse>;
+}
+
+/**
+ * Save File Operations API
+ */
+interface SaveFileAPI {
+  readSaveFile: (folderPath: string) => Promise<{ success: boolean; data?: ReplacementValuesFile; error?: string }>;
+  writeSaveFile: (folderPath: string, data: ReplacementValuesFile) => Promise<{ success: boolean; error?: string }>;
+  getSaveFileLastModified: (folderPath: string) => Promise<{ success: boolean; lastModified?: string; error?: string }>;
 }
 
 /**
@@ -68,6 +78,7 @@ interface ElectronAPI {
   folder: FolderAPI;
   document: DocumentAPI;
   settings: SettingsAPI;
+  saveFile: SaveFileAPI;
   window: WindowAPI;
   events: EventsAPI;
 }

@@ -11,6 +11,7 @@ import type {
   GetDocumentsResponse,
   SaveSettingsRequest,
   SaveSettingsResponse,
+  ReplacementValuesFile,
 } from '../shared/types'
 
 /**
@@ -88,6 +89,32 @@ const settingsAPI = {
    */
   saveSettings: async (settings: AppSettings): Promise<SaveSettingsResponse> => {
     return await ipcRenderer.invoke('settings:save', { settings } as SaveSettingsRequest)
+  },
+}
+
+/**
+ * Save File Operations API
+ */
+const saveFileAPI = {
+  /**
+   * Read save file from a folder
+   */
+  readSaveFile: async (folderPath: string): Promise<{ success: boolean; data?: ReplacementValuesFile; error?: string }> => {
+    return await ipcRenderer.invoke('savefile:read', folderPath)
+  },
+
+  /**
+   * Write save file to a folder
+   */
+  writeSaveFile: async (folderPath: string, data: ReplacementValuesFile): Promise<{ success: boolean; error?: string }> => {
+    return await ipcRenderer.invoke('savefile:write', folderPath, data)
+  },
+
+  /**
+   * Get save file last modified time
+   */
+  getSaveFileLastModified: async (folderPath: string): Promise<{ success: boolean; lastModified?: string; error?: string }> => {
+    return await ipcRenderer.invoke('savefile:lastModified', folderPath)
   },
 }
 
@@ -191,6 +218,7 @@ contextBridge.exposeInMainWorld('api', {
   folder: folderAPI,
   document: documentAPI,
   settings: settingsAPI,
+  saveFile: saveFileAPI,
   window: windowAPI,
   events: eventAPI,
 })
@@ -203,6 +231,7 @@ export type ElectronAPI = {
   folder: typeof folderAPI
   document: typeof documentAPI
   settings: typeof settingsAPI
+  saveFile: typeof saveFileAPI
   window: typeof windowAPI
   events: typeof eventAPI
 }
