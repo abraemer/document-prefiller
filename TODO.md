@@ -416,7 +416,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
 
 ## Phase 6: Renderer Process - State Management
 
-### 6.1 Create Composable for Marker Management
+### [x] 6.1 Create Composable for Marker Management
 - **Description**: Implement `useMarkers` composable for marker state
 - **Validation Criteria**:
   - `src/renderer/composables/useMarkers.ts` exists
