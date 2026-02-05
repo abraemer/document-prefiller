@@ -396,6 +396,10 @@ export interface ProgressEvent {
   total?: number;
   /** Number of items completed */
   completed?: number;
+  /** Current phase of operation (for replace operations) */
+  phase?: 'copying' | 'processing' | 'complete';
+  /** Number of errors encountered */
+  errors?: number;
   /** Whether the operation is complete */
   isComplete?: boolean;
 }

@@ -1281,6 +1281,353 @@ describe('Replacer Service', () => {
     });
   });
 
+  describe('Progress Tracking', () => {
+    it('should provide detailed progress information for single document', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'single.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Single Doc' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify we have progress updates
+      expect(progressUpdates.length).toBeGreaterThan(0);
+
+      // Verify all required fields are present
+      progressUpdates.forEach(update => {
+        expect(update).toHaveProperty('phase');
+        expect(update).toHaveProperty('progress');
+        expect(update.progress).toBeGreaterThanOrEqual(0);
+        expect(update.progress).toBeLessThanOrEqual(100);
+      });
+
+      // Verify final state
+      const finalUpdate = progressUpdates[progressUpdates.length - 1];
+      expect(finalUpdate.phase).toBe('complete');
+      expect(finalUpdate.progress).toBe(100);
+      expect(finalUpdate.total).toBe(1);
+      expect(finalUpdate.completed).toBe(1);
+      expect(finalUpdate.errors).toBe(0);
+    });
+
+    it('should track progress through copying phase', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'copy-test.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Copy Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify copying phase exists
+      const copyingUpdates = progressUpdates.filter(p => p.phase === 'copying');
+      expect(copyingUpdates.length).toBeGreaterThan(0);
+
+      // Verify copying phase progress is in correct range (0-50%)
+      copyingUpdates.forEach(update => {
+        expect(update.progress).toBeGreaterThanOrEqual(0);
+        expect(update.progress).toBeLessThanOrEqual(50);
+      });
+
+      // Verify copying phase includes current item
+      const updatesWithItem = copyingUpdates.filter(p => p.currentItem);
+      expect(updatesWithItem.length).toBeGreaterThan(0);
+    });
+
+    it('should track progress through processing phase', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'process-test.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Process Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify processing phase exists
+      const processingUpdates = progressUpdates.filter(p => p.phase === 'processing');
+      expect(processingUpdates.length).toBeGreaterThan(0);
+
+      // Verify processing phase progress is in correct range (50-100%)
+      processingUpdates.forEach(update => {
+        expect(update.progress).toBeGreaterThanOrEqual(50);
+        expect(update.progress).toBeLessThanOrEqual(100);
+      });
+
+      // Verify processing phase includes current item
+      const updatesWithItem = processingUpdates.filter(p => p.currentItem);
+      expect(updatesWithItem.length).toBeGreaterThan(0);
+    });
+
+    it('should report errors in progress updates', async () => {
+      const validXml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Valid: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'valid.docx'), validXml);
+      await fs.writeFile(path.join(sourceDir, 'invalid.docx'), 'Invalid content');
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify errors are reported
+      const updatesWithErrors = progressUpdates.filter(p => p.errors && p.errors > 0);
+      expect(updatesWithErrors.length).toBeGreaterThan(0);
+      expect(updatesWithErrors[0].errors).toBe(1);
+    });
+
+    it('should provide percentage complete in progress', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'percentage.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Percentage Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify progress percentage is always valid
+      progressUpdates.forEach(update => {
+        expect(update.progress).toBeGreaterThanOrEqual(0);
+        expect(update.progress).toBeLessThanOrEqual(100);
+        expect(typeof update.progress).toBe('number');
+      });
+
+      // Verify progress increases monotonically
+      for (let i = 1; i < progressUpdates.length; i++) {
+        expect(progressUpdates[i].progress).toBeGreaterThanOrEqual(progressUpdates[i - 1].progress);
+      }
+    });
+
+    it('should include total and completed counts', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'doc1.docx'), xmlContent);
+      await createTestDocx(path.join(sourceDir, 'doc2.docx'), xmlContent);
+      await createTestDocx(path.join(sourceDir, 'doc3.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Count Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify total is set correctly
+      const processingUpdates = progressUpdates.filter(p => p.phase === 'processing');
+      expect(processingUpdates[0].total).toBe(3);
+
+      // Verify completed count increases
+      const completedCounts = processingUpdates.map(p => p.completed).filter((c): c is number => c !== undefined);
+      expect(completedCounts.length).toBeGreaterThan(0);
+      expect(Math.max(...completedCounts)).toBe(3);
+    });
+
+    it('should handle progress tracking for empty folder', async () => {
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: {},
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Should still report progress even for empty folder
+      expect(progressUpdates.length).toBeGreaterThan(0);
+      expect(progressUpdates[progressUpdates.length - 1].phase).toBe('complete');
+      expect(progressUpdates[progressUpdates.length - 1].total).toBe(0);
+      expect(progressUpdates[progressUpdates.length - 1].completed).toBe(0);
+    });
+
+    it('should work without progress callback', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'no-callback.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'No Callback' },
+        prefix: 'REPLACEME-'
+      };
+
+      // Should work without throwing error
+      const result = await processDocumentsBatch(request);
+
+      expect(result.success).toBe(true);
+      expect(result.processed).toBe(1);
+    });
+
+    it('should provide current file name in progress', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      await createTestDocx(path.join(sourceDir, 'current-file.docx'), xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Current File Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      await processDocumentsBatch(request, onProgress);
+
+      // Verify current item is provided
+      const updatesWithItem = progressUpdates.filter(p => p.currentItem);
+      expect(updatesWithItem.length).toBeGreaterThan(0);
+
+      // Verify current item contains file name
+      const hasFileName = updatesWithItem.some(p => p.currentItem && p.currentItem.includes('.docx'));
+      expect(hasFileName).toBe(true);
+    });
+
+    it('should track progress for large batch efficiently', async () => {
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+      // Create 5 documents
+      for (let i = 1; i <= 5; i++) {
+        await createTestDocx(path.join(sourceDir, `batch${i}.docx`), xmlContent);
+      }
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NAME: 'Batch Test' },
+        prefix: 'REPLACEME-'
+      };
+
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
+      };
+
+      const startTime = Date.now();
+      const result = await processDocumentsBatch(request, onProgress);
+      const endTime = Date.now();
+
+      expect(result.success).toBe(true);
+      expect(result.processed).toBe(5);
+
+      // Verify progress was reported for all documents
+      const processingUpdates = progressUpdates.filter(p => p.phase === 'processing');
+      expect(processingUpdates.length).toBeGreaterThan(0);
+
+      // Verify performance is reasonable (progress tracking shouldn't add significant overhead)
+      expect(endTime - startTime).toBeLessThan(5000);
+    });
+  });
+
   describe('Error Handling for Malformed Documents', () => {
     it('should handle corrupted .docx file (not a ZIP)', async () => {
       const invalidPath = path.join(sourceDir, 'corrupted.docx');

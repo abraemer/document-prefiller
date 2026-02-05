@@ -10,7 +10,7 @@ import type {
   GetDocumentsRequest,
   GetDocumentsResponse,
 } from '../../shared/types';
-import { replaceMarkers } from '../services/replacer';
+import { processDocumentsBatch, type BatchProgress } from '../services/replacer';
 import { scanFolder } from '../services/scanner';
 import { DEFAULT_PREFIX } from '../../shared/constants';
 import * as path from 'path';
@@ -73,13 +73,19 @@ export function registerDocumentHandlers() {
         prefix,
       };
 
-      // Perform replacement with progress tracking
-      const result = await replaceMarkers(replacementRequest, (progress) => {
-        // Send progress event to renderer
+      // Perform replacement with enhanced progress tracking
+      const result = await processDocumentsBatch(replacementRequest, (progress: BatchProgress) => {
+        // Send progress event to renderer with detailed phase information
         BrowserWindow.getAllWindows().forEach((window) => {
           window.webContents.send('progress:event', {
-            ...progress,
-            isComplete: progress.progress === 100,
+            operation: 'replace',
+            progress: progress.progress,
+            currentItem: progress.currentItem,
+            total: progress.total,
+            completed: progress.completed,
+            phase: progress.phase,
+            errors: progress.errors,
+            isComplete: progress.phase === 'complete',
           });
         });
       });
