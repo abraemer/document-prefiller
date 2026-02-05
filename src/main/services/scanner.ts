@@ -13,10 +13,13 @@ import {
   FOLDER_NOT_FOUND_ERROR,
   MAX_SCAN_DOCUMENTS,
   MAX_DOCUMENT_SIZE,
-  MAX_MARKERS_PER_DOCUMENT,
   MAX_UNIQUE_MARKERS,
 } from '../../shared/constants/index.js';
 import { parseDocxFile, DocxParseError } from '../utils/docx-parser.js';
+import {
+  detectMarkers,
+  MarkerDetectionError,
+} from '../utils/marker-detection.js';
 
 /**
  * Scan a folder for .docx files and detect markers
@@ -69,6 +72,9 @@ export async function scanFolder(
       if (error instanceof DocxParseError) {
         errorMessage = error.message;
         console.error(`Error parsing ${filePath}:`, errorMessage, error.cause);
+      } else if (error instanceof MarkerDetectionError) {
+        errorMessage = error.message;
+        console.error(`Error detecting markers in ${filePath}:`, errorMessage, error.cause);
       } else if (error instanceof Error) {
         errorMessage = error.message;
         console.error(`Error parsing ${filePath}:`, errorMessage);
@@ -135,42 +141,6 @@ async function findDocxFiles(folderPath: string): Promise<string[]> {
       resolve(docxFiles);
     });
   });
-}
-
-/**
- * Detect markers in text content using the specified prefix
- *
- * @param text - Text content to search for markers
- * @param prefix - Marker prefix to use for detection
- * @returns Array of detected marker identifiers (without prefix)
- */
-export function detectMarkers(text: string, prefix: string): string[] {
-  const markers: Set<string> = new Set();
-
-  // Escape special regex characters in the prefix
-  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  // Create regex pattern to find markers
-  // Pattern: prefix followed by alphanumeric characters and underscores
-  const markerRegex = new RegExp(`${escapedPrefix}([A-Za-z0-9_]+)`, 'g');
-
-  let match: RegExpExecArray | null;
-  let matchCount = 0;
-
-  while ((match = markerRegex.exec(text)) !== null) {
-    if (matchCount >= MAX_MARKERS_PER_DOCUMENT) {
-      console.warn(
-        `Maximum marker limit (${MAX_MARKERS_PER_DOCUMENT}) reached for document`
-      );
-      break;
-    }
-
-    const identifier = match[1];
-    markers.add(identifier);
-    matchCount++;
-  }
-
-  return Array.from(markers);
 }
 
 /**

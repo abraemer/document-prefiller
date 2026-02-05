@@ -148,7 +148,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for file parsing
 - **Dependencies**: 3.1
 
-### 3.3 Create Marker Detection Algorithm
+### [x] 3.3 Create Marker Detection Algorithm
 - **Description**: Implement regex-based marker detection in document text
 - **Validation Criteria**:
   - `detectMarkers()` function exists
