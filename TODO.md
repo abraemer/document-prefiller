@@ -323,7 +323,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Component is registered in renderer entry point
 - **Dependencies**: 1.4, 1.8
 
-### 5.2 Implement Folder Selector Component
+### [x] 5.2 Implement Folder Selector Component
 - **Description**: Create a component for folder selection and display
 - **Validation Criteria**:
   - `src/renderer/components/FolderSelector.vue` exists
