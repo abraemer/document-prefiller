@@ -438,7 +438,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Unit tests pass for composable
 - **Dependencies**: 2.2, 1.8, 3.8
 
-### 6.3 Create Composable for Settings Management
+### [x] 6.3 Create Composable for Settings Management
 - **Description**: Implement `useSettings` composable for app settings
 - **Validation Criteria**:
   - `src/renderer/composables/useSettings.ts` exists
