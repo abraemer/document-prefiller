@@ -54,7 +54,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Empty placeholder files exist where needed
 - **Dependencies**: 1.1
 
-### 1.6 Set Up Development and Build Scripts
+### [x] 1.6 Set Up Development and Build Scripts
 - **Description**: Configure npm scripts for development, building, and testing
 - **Validation Criteria**:
   - `package.json` contains scripts: `dev`, `build`, `preview`, `test`
@@ -63,7 +63,7 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Test suite runs with `npm run test`
 - **Dependencies**: 1.1, 1.5
 
-### 1.7 Configure Electron Preload Script and Context Bridge
+### [x] 1.7 Configure Electron Preload Script and Context Bridge
 - **Description**: Set up the preload script to securely expose APIs to renderer process
 - **Validation Criteria**:
   - `src/preload/index.ts` exists

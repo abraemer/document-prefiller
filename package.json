@@ -2,15 +2,18 @@
   "name": "document-prefiller",
   "version": "1.0.0",
   "description": "A desktop application for prefilling Microsoft Word documents with replacement markers",
-  "main": "dist-electron/main/index.js",
+  "main": "out/main/index.js",
   "type": "module",
   "author": "",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc && vite build && electron-builder",
-    "preview": "vite preview",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build && electron-builder",
+    "build:win": "electron-vite build && electron-builder --win",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "preview": "electron-vite preview",
     "lint": "eslint . --fix",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -38,6 +41,7 @@
     "@vue/tsconfig": "^0.5.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.0",
+    "electron-vite": "^5.0.0",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.7.0",
     "globals": "^17.3.0",
@@ -55,12 +59,99 @@
     "appId": "com.documentprefiller.app",
     "productName": "Document Prefiller",
     "directories": {
-      "output": "release/${version}"
+      "output": "release/${version}",
+      "buildResources": "public/icons"
     },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "package.json"
-    ]
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icons/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "public/icons/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icons/icon.png",
+      "category": "Office",
+      "maintainer": "Document Prefiller Team"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Document Prefiller"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }

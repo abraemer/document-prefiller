@@ -1,5 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
+import { fileURLToPath } from 'url'
+import { registerIpcHandlers } from './ipc/handlers'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 
@@ -8,16 +12,22 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: false
     }
   })
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
+  // In development, load from the dev server
+  // electron-vite sets VITE_DEV_SERVER_URL automatically
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    mainWindow.loadURL(devServerUrl)
     mainWindow.webContents.openDevTools()
   } else {
+    // In production, load from the built files
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
@@ -27,6 +37,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Register all IPC handlers before creating the window
+  registerIpcHandlers()
+  
   createWindow()
 
   app.on('activate', () => {
