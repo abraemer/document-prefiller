@@ -4,13 +4,24 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -20,75 +31,42 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
-      - name: Build for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: yarn run build:linux
-
-      - name: Build for macOS
-        if: matrix.os == 'macos-latest'
+      - name: Build and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn run build:mac
+        run: |
+          yarn run build:${{ matrix.platform }}
 
-      - name: Build for Windows
-        if: matrix.os == 'windows-latest'
-        run: yarn run build:win
-
-      - name: Upload artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: linux-build
-          path: release/${{ github.ref_name }}/*.{AppImage,*}
+          name: ${{ matrix.platform }}-build
+          path: |
+            release/${{ github.ref_name }}/*.AppImage
+            release/${{ github.ref_name }}/*.dmg
+            release/${{ github.ref_name }}/*.zip
+            release/${{ github.ref_name }}/*.exe
+          retention-days: 7
 
-      - name: Upload artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: release/${{ github.ref_name }}/*.{dmg,zip}
-
-      - name: Upload artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: release/${{ github.ref_name }}/*.{exe,zip}
-
-  release:
+  attach-to-release:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    if: success()
 
     steps:
-      - name: Download Linux artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-build
-          path: ./artifacts/linux
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-build
-          path: ./artifacts/macos
-
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-build
-          path: ./artifacts/windows
+          path: ./artifacts
 
       - name: Attach artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ./artifacts/linux/*
-            ./artifacts/macos/*
-            ./artifacts/windows/*
-          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./artifacts/**/*
+          fail_on_unmatched_files: true
