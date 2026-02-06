@@ -30,6 +30,8 @@ jobs:
 
       - name: Build for macOS
         if: matrix.os == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: yarn run build:mac
 
       - name: Build for Windows
@@ -89,5 +91,4 @@ jobs:
             ./artifacts/linux/*
             ./artifacts/macos/*
             ./artifacts/windows/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
