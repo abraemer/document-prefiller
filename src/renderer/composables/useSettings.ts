@@ -107,6 +107,13 @@ export function useSettings() {
   });
 
   /**
+   * Last output folder path
+   */
+  const lastOutputFolder = computed<string | undefined>(() => {
+    return settings.value.lastOutputFolder;
+  });
+
+  /**
    * Window state
    */
   const windowState = computed(() => {
@@ -195,6 +202,7 @@ export function useSettings() {
       // Merge loaded settings with defaults to ensure all properties exist
       settings.value = {
         lastFolder: loadedSettings.lastFolder,
+        lastOutputFolder: loadedSettings.lastOutputFolder,
         windowState: {
           width: loadedSettings.windowState.width || DEFAULT_WINDOW_WIDTH,
           height: loadedSettings.windowState.height || DEFAULT_WINDOW_HEIGHT,
@@ -259,6 +267,10 @@ export function useSettings() {
       settings.value.lastFolder = updates.lastFolder;
     }
 
+    if (updates.lastOutputFolder !== undefined) {
+      settings.value.lastOutputFolder = updates.lastOutputFolder;
+    }
+
     if (updates.windowState) {
       settings.value.windowState = {
         ...settings.value.windowState,
@@ -295,7 +307,7 @@ export function useSettings() {
 
   /**
    * Update last folder path
-   * 
+   *
    * @param folderPath - The folder path to set
    */
   function updateLastFolder(folderPath: string): void {
@@ -304,8 +316,18 @@ export function useSettings() {
   }
 
   /**
+   * Update last output folder path
+   *
+   * @param folderPath - The output folder path to set
+   */
+  function updateLastOutputFolder(folderPath: string): void {
+    settings.value.lastOutputFolder = folderPath;
+    isModified.value = true;
+  }
+
+  /**
    * Update window state
-   * 
+   *
    * @param windowStateUpdates - Partial window state to update
    */
   function updateWindowState(windowStateUpdates: Partial<AppSettings['windowState']>): void {
@@ -516,6 +538,7 @@ export function useSettings() {
     // Computed
     statistics,
     lastFolder,
+    lastOutputFolder,
     windowState,
     preferences,
     defaultPrefix,
@@ -533,6 +556,7 @@ export function useSettings() {
     updateSettings,
     resetSettings,
     updateLastFolder,
+    updateLastOutputFolder,
     updateWindowState,
     updateWindowDimensions,
     updateWindowPosition,

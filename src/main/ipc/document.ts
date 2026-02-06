@@ -25,7 +25,7 @@ export function registerDocumentHandlers() {
    */
   ipcMain.handle('document:replace', async (event, request: ReplaceDocumentsRequest): Promise<ReplaceDocumentsResponse> => {
     try {
-      const { folderPath, markers } = request;
+      const { folderPath, markers, outputFolder: requestedOutputFolder } = request;
 
       // Validate folder path
       if (!folderPath || typeof folderPath !== 'string') {
@@ -62,8 +62,8 @@ export function registerDocumentHandlers() {
         values[marker.id] = marker.value;
       }
 
-      // Create output folder path
-      const outputFolder = path.join(folderPath, 'output');
+      // Use provided output folder or default to 'output' subdirectory
+      const outputFolder = requestedOutputFolder || path.join(folderPath, 'output');
 
       // Create replacement request
       const replacementRequest = {

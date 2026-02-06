@@ -354,6 +354,44 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Confirmation Dialog -->
+    <v-dialog
+      v-model="showConfirmDialog"
+      max-width="500"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6">
+          <v-icon
+            icon="mdi-alert-circle-outline"
+            color="warning"
+            class="mr-2"
+          />
+          {{ confirmTitle }}
+        </v-card-title>
+        <v-card-text class="text-body-1">
+          {{ confirmMessage }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="handleConfirmDialogCancelled"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="warning"
+            variant="elevated"
+            @click="handleConfirmDialogConfirmed"
+          >
+            Continue
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -371,9 +409,9 @@ import MarkerList from './components/MarkerList.vue';
 // COMPOSABLES
 // ============================================================================
 
-const { 
-  validatePrefix, 
-  isFormValid, 
+const {
+  validatePrefix,
+  isFormValid,
   getPrefixRules,
 } = useValidation();
 
@@ -393,6 +431,7 @@ const {
   settings,
   loadSettings,
   updateLastFolder,
+  updateLastOutputFolder,
 } = useSettings();
 
 // ============================================================================
@@ -423,6 +462,12 @@ const successTitle = ref<string>('Success');
 const showWarning = ref<boolean>(false);
 const warningMessage = ref<string>('');
 const warningTitle = ref<string>('Warning');
+
+// Confirmation dialog state
+const showConfirmDialog = ref<boolean>(false);
+const confirmMessage = ref<string>('');
+const confirmTitle = ref<string>('');
+const confirmCallback = ref<(() => void) | null>(null);
 
 // Validation state
 const prefixValidationErrors = ref<string[]>([]);
@@ -556,6 +601,56 @@ async function handleReplace(): Promise<void> {
       return;
     }
 
+    // Show folder selection dialog
+    const defaultPath = settings.value.lastOutputFolder;
+    const folderResult = await window.api.folder.selectFolder(defaultPath);
+
+    // Check if user cancelled the dialog
+    if (!folderResult.folderPath) {
+      // User cancelled, abort the replacement
+      return;
+    }
+
+    const selectedOutputFolder = folderResult.folderPath;
+
+    // Check for existing documents that would be overwritten
+    const checkResult = await window.api.folder.checkOutputFolder(
+      currentFolder.value,
+      selectedOutputFolder
+    );
+
+    if (checkResult.success && checkResult.existingDocuments.length > 0) {
+      // Show confirmation dialog for overwriting
+      const docCount = checkResult.existingDocuments.length;
+      const docList = checkResult.existingDocuments.slice(0, 5).join(', ');
+      const moreText = checkResult.existingDocuments.length > 5 ? ` and ${checkResult.existingDocuments.length - 5} more` : '';
+      
+      confirmTitle.value = 'Confirm Overwrite';
+      confirmMessage.value = `The following ${docCount} document${docCount !== 1 ? 's' : ''} in the output folder will be overwritten:\n\n${docList}${moreText}\n\nDo you want to continue?`;
+      
+      // Set up callback to proceed with replacement after confirmation
+      confirmCallback.value = async () => {
+        await performReplacement(selectedOutputFolder);
+      };
+      
+      showConfirmDialog.value = true;
+      return;
+    }
+
+    // No files to overwrite, proceed directly
+    await performReplacement(selectedOutputFolder);
+  } catch (error) {
+    showError.value = true;
+    errorTitle.value = 'Replacement Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to replace markers. Please check the documents and try again.';
+  }
+}
+
+/**
+ * Perform the actual document replacement
+ */
+async function performReplacement(outputFolder: string): Promise<void> {
+  try {
     isLoading.value = true;
     loadingMessage.value = 'Replacing markers...';
     showProgress.value = true;
@@ -573,13 +668,17 @@ async function handleReplace(): Promise<void> {
         enabled: true,
       }));
 
-    // Use IPC to replace documents
+    // Use IPC to replace documents with selected output folder
     const result = await window.api.document.replaceDocuments(
       currentFolder.value,
-      documentMarkers
+      documentMarkers,
+      outputFolder
     );
 
     if (result.success) {
+      // Save the selected output folder to settings
+      updateLastOutputFolder(outputFolder);
+      
       showSuccess.value = true;
       successTitle.value = 'Replacement Complete';
       successMessage.value = `Successfully replaced markers in ${result.processed} document${result.processed !== 1 ? 's' : ''}.`;
@@ -596,6 +695,26 @@ async function handleReplace(): Promise<void> {
     isLoading.value = false;
     showProgress.value = false;
   }
+}
+
+/**
+ * Handle confirmation dialog confirmed
+ */
+function handleConfirmDialogConfirmed(): void {
+  showConfirmDialog.value = false;
+  if (confirmCallback.value) {
+    const callback = confirmCallback.value;
+    confirmCallback.value = null;
+    callback();
+  }
+}
+
+/**
+ * Handle confirmation dialog cancelled
+ */
+function handleConfirmDialogCancelled(): void {
+  showConfirmDialog.value = false;
+  confirmCallback.value = null;
 }
 
 /**

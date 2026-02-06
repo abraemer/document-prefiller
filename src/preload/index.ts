@@ -5,6 +5,8 @@ import type {
   ScanFolderRequest,
   ScanFolderResponse,
   SelectFolderResponse,
+  CheckOutputFolderRequest,
+  CheckOutputFolderResponse,
   ReplaceDocumentsRequest,
   ReplaceDocumentsResponse,
   GetDocumentsRequest,
@@ -43,8 +45,15 @@ const folderAPI = {
   /**
    * Open a folder selection dialog
    */
-  selectFolder: async (): Promise<SelectFolderResponse> => {
-    return await ipcRenderer.invoke('folder:select')
+  selectFolder: async (defaultPath?: string): Promise<SelectFolderResponse> => {
+    return await ipcRenderer.invoke('folder:select', defaultPath)
+  },
+
+  /**
+   * Check output folder for existing documents that would be overwritten
+   */
+  checkOutputFolder: async (sourceFolder: string, outputFolder: string): Promise<CheckOutputFolderResponse> => {
+    return await ipcRenderer.invoke('folder:checkOutput', { sourceFolder, outputFolder } as CheckOutputFolderRequest)
   },
 }
 
@@ -57,11 +66,13 @@ const documentAPI = {
    */
   replaceDocuments: async (
     folderPath: string,
-    markers: DocumentMarker[]
+    markers: DocumentMarker[],
+    outputFolder?: string
   ): Promise<ReplaceDocumentsResponse> => {
     return await ipcRenderer.invoke('document:replace', {
       folderPath,
       markers,
+      outputFolder,
     } as ReplaceDocumentsRequest)
   },
 

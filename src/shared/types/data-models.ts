@@ -59,6 +59,8 @@ export interface ReplacementValuesFile {
 export interface AppSettings {
   /** Last selected folder path */
   lastFolder?: string;
+  /** Last selected output folder path */
+  lastOutputFolder?: string;
   /** Window state for persistence */
   windowState: {
     /** Window width in pixels */

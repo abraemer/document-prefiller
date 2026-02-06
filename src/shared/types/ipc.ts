@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
   // Folder operations
   SCAN_FOLDER: 'folder:scan',
   SELECT_FOLDER: 'folder:select',
+  CHECK_OUTPUT_FOLDER: 'folder:checkOutput',
 
   // Document operations
   REPLACE_DOCUMENTS: 'document:replace',
@@ -80,6 +81,30 @@ export interface SelectFolderResponse {
   error?: string;
 }
 
+/**
+ * Check Output Folder Request
+ * Request to check if output folder contains existing documents
+ */
+export interface CheckOutputFolderRequest {
+  /** Source folder path */
+  sourceFolder: string;
+  /** Output folder path */
+  outputFolder: string;
+}
+
+/**
+ * Check Output Folder Response
+ * Response containing information about existing documents in output folder
+ */
+export interface CheckOutputFolderResponse {
+  /** Whether the check was successful */
+  success: boolean;
+  /** List of existing document names that would be overwritten */
+  existingDocuments: string[];
+  /** Error message if check failed */
+  error?: string;
+}
+
 // ============================================================================
 // DOCUMENT OPERATIONS
 // ============================================================================
@@ -109,6 +134,8 @@ export interface ReplaceDocumentsRequest {
   folderPath: string;
   /** Markers to replace */
   markers: DocumentMarker[];
+  /** Optional output folder path (defaults to 'output' subdirectory if not provided) */
+  outputFolder?: string;
 }
 
 /**
@@ -162,6 +189,8 @@ export interface GetDocumentsResponse {
 export type GetSettingsResponse = {
   /** Last selected folder path */
   lastFolder?: string;
+  /** Last selected output folder path */
+  lastOutputFolder?: string;
   /** Window state for persistence */
   windowState: {
     /** Window width in pixels */
@@ -191,6 +220,8 @@ export interface SaveSettingsRequest {
   settings: {
     /** Last selected folder path */
     lastFolder?: string;
+    /** Last selected output folder path */
+    lastOutputFolder?: string;
     /** Window state for persistence */
     windowState?: {
       /** Window width in pixels */
@@ -362,6 +393,8 @@ export interface SettingsChangedEvent {
   settings: {
     /** Last selected folder path */
     lastFolder?: string;
+    /** Last selected output folder path */
+    lastOutputFolder?: string;
     /** Window state for persistence */
     windowState?: {
       /** Window width in pixels */
