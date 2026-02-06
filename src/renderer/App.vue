@@ -132,52 +132,14 @@
                       </v-card-title>
                       <v-divider />
                       <v-card-text class="pa-0">
-                        <v-list
-                          v-if="markers.length > 0"
-                          class="py-0"
-                        >
-                          <v-list-item
-                            v-for="marker in markers"
-                            :key="marker.identifier"
-                            class="px-4 py-2"
-                          >
-                            <div class="d-flex align-center w-100 ga-3">
-                              <v-icon
-                                :color="getMarkerStatusColor(marker.status)"
-                                :icon="getMarkerStatusIcon(marker.status)"
-                                class="flex-shrink-0"
-                              />
-                              
-                              <div class="marker-name flex-shrink-0 font-weight-medium">
-                                {{ marker.fullMarker }}
-                              </div>
-                              
-                              <v-text-field
-                                :ref="(el) => setMarkerInputRef(el, marker.identifier)"
-                                v-model="marker.value"
-                                variant="outlined"
-                                density="compact"
-                                placeholder="Enter value..."
-                                single-line
-                                hide-details
-                                class="flex-grow-1"
-                                @update:model-value="handleMarkerValueChange(marker)"
-                                @keydown.enter.prevent="handleEnterKey(marker.identifier)"
-                                @keydown.tab="handleTabKey($event, marker.identifier)"
-                              />
-                            </div>
-                          </v-list-item>
-                        </v-list>
-                        <v-list
-                          v-else
-                          class="py-8"
-                        >
-                          <v-list-item>
-                            <v-list-item-title class="text-center text-grey">
-                              No markers detected. Select a folder with .docx files.
-                            </v-list-item-title>
-                          </v-list-item>
-                        </v-list>
+                        <MarkerList
+                          ref="markerListRef"
+                          :markers="markers"
+                          :loading="isLoading"
+                          :no-card="true"
+                          @value-change="handleMarkerValueChange"
+                          @enter-pressed="handleEnterKey"
+                        />
                       </v-card-text>
                     </v-card>
                   </v-col>
@@ -403,6 +365,7 @@ import { useValidation } from './composables/useValidation';
 import { useMarkers } from './composables/useMarkers';
 import { useDocuments } from './composables/useDocuments';
 import { useSettings } from './composables/useSettings';
+import MarkerList from './components/MarkerList.vue';
 
 // ============================================================================
 // COMPOSABLES
@@ -464,8 +427,8 @@ const warningTitle = ref<string>('Warning');
 // Validation state
 const prefixValidationErrors = ref<string[]>([]);
 
-// Keyboard navigation state
-const markerInputRefs = ref<Map<string, HTMLInputElement>>(new Map());
+// Marker list component ref
+const markerListRef = ref<InstanceType<typeof MarkerList> | null>(null);
 
 // ============================================================================
 // COMPUTED
@@ -572,9 +535,9 @@ async function handleRefresh(): Promise<void> {
 /**
  * Handle marker value change
  */
-function handleMarkerValueChange(marker: Marker): void {
+function handleMarkerValueChange(identifier: string, value: string): void {
   // Update marker value in composable
-  updateMarkerValue(marker.identifier, marker.value);
+  updateMarkerValue(identifier, value);
 }
 
 /**
@@ -636,69 +599,11 @@ async function handleReplace(): Promise<void> {
 }
 
 /**
- * Get marker status color
- */
-function getMarkerStatusColor(status: string): string {
-  switch (status) {
-    case 'new':
-      return 'warning';
-    case 'removed':
-      return 'grey';
-    case 'active':
-    default:
-      return 'primary';
-  }
-}
-
-/**
- * Get marker status icon
- */
-function getMarkerStatusIcon(status: string): string {
-  switch (status) {
-    case 'new':
-      return 'mdi-star';
-    case 'removed':
-      return 'mdi-delete';
-    case 'active':
-    default:
-      return 'mdi-tag';
-  }
-}
-
-/**
- * Set marker input ref
- */
-function setMarkerInputRef(el: unknown, identifier: string): void {
-  if (el && typeof el === 'object' && 'focus' in el) {
-    markerInputRefs.value.set(identifier, el as HTMLInputElement);
-  }
-}
-
-/**
  * Handle Enter key press on marker input
- * Moves focus to the next marker input
+ * This is now handled by MarkerList component
  */
-function handleEnterKey(currentIdentifier: string): void {
-  const markerIndex = markers.value.findIndex(m => m.identifier === currentIdentifier);
-  if (markerIndex !== -1 && markerIndex < markers.value.length - 1) {
-    const nextMarker = markers.value[markerIndex + 1];
-    const nextInput = markerInputRefs.value.get(nextMarker.identifier);
-    if (nextInput) {
-      nextTick(() => {
-        nextInput.focus();
-      });
-    }
-  }
-}
-
-/**
- * Handle Tab key press on marker input
- * Allows default Tab behavior but manages focus
- */
-function handleTabKey(_event: KeyboardEvent, _currentIdentifier: string): void {
-  // Let the default Tab behavior work
-  // Shift+Tab is handled automatically by the browser
-  // The parameters are kept for future enhancements
+function handleEnterKey(_identifier: string): void {
+  // Keyboard navigation is handled by MarkerList component
 }
 
 /**
@@ -745,15 +650,12 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 
 /**
  * Focus first marker input
+ * This is now handled by MarkerList component
  */
 async function focusFirstMarkerInput(): Promise<void> {
   await nextTick();
-  if (markers.value.length > 0) {
-    const firstMarker = markers.value[0];
-    const firstInput = markerInputRefs.value.get(firstMarker.identifier);
-    if (firstInput) {
-      firstInput.focus();
-    }
+  if (markerListRef.value) {
+    markerListRef.value.focusFirstMarkerInput();
   }
 }
 

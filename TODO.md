@@ -934,6 +934,32 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - Manual testing confirms no regression in functionality
 - **Dependencies**: 5.3, 5.4, 7.4
 
+### 11.7 Add Output Folder Selection Dialog
+- **Description**: Fix the replacement flow to show a folder selection dialog when the user clicks the replace button, allowing them to choose where the output files should be saved. The dialog should default to the previously selected output folder (if it still exists), or to the Documents folder for first-time users.
+- **Root Cause**: The output folder is hardcoded in `src/main/ipc/document.ts:66` as `path.join(folderPath, 'output')`, with no user choice. The `handleReplace()` function in `src/renderer/App.vue` immediately calls the replacement IPC without showing any folder selection dialog.
+- **Fix**:
+  1. Update `ReplaceDocumentsRequest` type in `src/shared/types/ipc.ts` to include an optional `outputFolder` field
+  2. Update `handleReplaceDocuments()` in `src/main/ipc/document.ts` to accept and use the `outputFolder` parameter instead of hardcoding the 'output' subdirectory
+  3. Add `lastOutputFolder` field to the settings in `src/main/ipc/settings.ts` to persist the user's output folder choice
+  4. Update `handleReplace()` in `src/renderer/App.vue` to:
+     - Show a folder selection dialog before calling the replacement IPC
+     - Use `window.api.folder.selectFolder()` with the saved `lastOutputFolder` as default path (or Documents folder if none exists)
+     - Abort the replacement if the user cancels the dialog
+     - Pass the selected output folder to the replacement IPC
+     - Save the selected output folder to settings after successful replacement
+  5. Update the preload script if needed to expose any new IPC channels
+- **Validation Criteria**:
+  - Clicking the replace button opens a folder selection dialog
+  - Dialog defaults to the previously selected output folder (if it still exists)
+  - Dialog defaults to the Documents folder for first-time users
+  - Canceling the dialog aborts the replacement operation
+  - Selected output folder is used for saving the replaced documents
+  - Selected output folder is saved to settings and used as default next time
+  - If the previously selected folder no longer exists, dialog defaults to Documents folder
+  - Manual testing confirms output files are saved to the selected folder
+  - No regression in existing replacement functionality
+- **Dependencies**: 7.5, 3.10
+
 ---
 
 ## Summary

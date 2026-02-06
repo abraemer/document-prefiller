@@ -1,58 +1,58 @@
 <template>
   <v-list-item
-    class="marker-item"
+    class="marker-item px-4 py-2"
     :class="`marker-item--${marker.status}`"
   >
-    <template #prepend>
+    <div class="d-flex align-center w-100 ga-3">
       <v-avatar
         :color="statusColor"
         size="40"
-        class="mr-3"
+        class="flex-shrink-0"
       >
         <v-icon :icon="statusIcon" />
       </v-avatar>
-    </template>
 
-    <v-list-item-title class="d-flex align-center">
-      <span class="font-weight-medium">{{ marker.fullMarker }}</span>
-      <v-chip
-        v-if="marker.status === 'new'"
-        color="warning"
-        size="x-small"
-        class="ml-2"
-      >
-        New
-      </v-chip>
-      <v-chip
-        v-if="marker.status === 'removed'"
-        color="grey"
-        size="x-small"
-        class="ml-2"
-      >
-        Removed
-      </v-chip>
-    </v-list-item-title>
-
-    <v-list-item-subtitle class="mt-1 d-flex">
+      <div class="marker-name flex-shrink-0">
+        <span class="font-weight-medium">{{ marker.fullMarker }}</span>
+        <v-chip
+          v-if="marker.status === 'new'"
+          color="warning"
+          size="x-small"
+          class="ml-2"
+        >
+          New
+        </v-chip>
+        <v-chip
+          v-if="marker.status === 'removed'"
+          color="grey"
+          size="x-small"
+          class="ml-2"
+        >
+          Removed
+        </v-chip>
+      </div>
+      
       <v-text-field
+        ref="inputRef"
         :model-value="marker.value"
-        :label="`Value for ${marker.identifier}`"
-        :placeholder="`Enter replacement value for ${marker.identifier}`"
+        placeholder="Enter value..."
         :error-messages="showErrorMessages ? errorMessages : []"
         :error="showErrorMessages"
         variant="outlined"
         density="compact"
         hide-details="auto"
+        single-line
         class="flex-grow-1"
         :disabled="marker.status === 'removed'"
         @update:model-value="handleValueChange"
         @keydown.enter="handleEnterKey"
         @keydown.tab="handleTabKey"
       />
-    </v-list-item-subtitle>
 
-    <template #append>
-      <div class="text-caption text-grey-darken-1 text-right">
+      <div
+        class="text-caption text-grey-darken-1 text-right flex-shrink-0"
+        style="min-width: 80px;"
+      >
         <div>{{ marker.documents.length }} document{{ marker.documents.length !== 1 ? 's' : '' }}</div>
         <v-tooltip location="top">
           <template #activator="slotProps">
@@ -68,7 +68,7 @@
           </div>
         </v-tooltip>
       </div>
-    </template>
+    </div>
   </v-list-item>
 </template>
 
@@ -129,6 +129,9 @@ const { validateMarkerValue } = useValidation();
 // ============================================================================
 // STATE
 // ============================================================================
+
+/** Reference to the input field for focus management */
+const inputRef = ref<HTMLInputElement | null>(null);
 
 /** Whether the field has been touched (user interacted with it) */
 const isTouched = ref<boolean>(false);
@@ -234,12 +237,22 @@ function handleTabKey(): void {
 }
 
 /**
- * Expose validation method for parent components
+ * Focus the input field
+ */
+function focus(): void {
+  if (inputRef.value) {
+    inputRef.value.focus();
+  }
+}
+
+/**
+ * Expose validation method and focus for parent components
  */
 defineExpose({
   validate: performValidation,
   isValid,
   errorMessages,
+  focus,
 });
 </script>
 
@@ -260,20 +273,9 @@ defineExpose({
   opacity: 0.7;
 }
 
-/* Ensure the list item content area expands to fill available space */
-.marker-item :deep(.v-list-item__content) {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Ensure the subtitle takes full available width and text field expands */
-.marker-item :deep(.v-list-item-subtitle) {
-  flex: 1;
-  width: 100%;
-}
-
-.marker-item :deep(.v-text-field) {
-  flex: 1;
-  min-width: 0;
+/* Marker name should not take too much space */
+.marker-name {
+  min-width: 200px;
+  max-width: 300px;
 }
 </style>

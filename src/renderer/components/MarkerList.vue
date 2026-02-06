@@ -1,5 +1,6 @@
 <template>
   <v-card
+    v-if="!noCard"
     class="marker-list"
     elevation="2"
   >
@@ -85,132 +86,122 @@
         v-else
         class="marker-list-content"
       >
-        <v-list-item
+        <MarkerItem
           v-for="marker in markers"
           :key="marker.identifier"
-          class="marker-item px-4 py-2"
-          :class="`marker-item--${marker.status}`"
-        >
-          <div class="d-flex align-center w-100 ga-3">
-            <v-avatar
-              :color="getStatusColor(marker.status)"
-              size="40"
-              class="flex-shrink-0"
-            >
-              <v-icon :icon="getStatusIcon(marker.status)" />
-            </v-avatar>
-
-            <div class="marker-name flex-shrink-0">
-              <span class="font-weight-medium">{{ marker.fullMarker }}</span>
-              <v-chip
-                v-if="marker.status === 'new'"
-                color="warning"
-                size="x-small"
-                class="ml-2"
-              >
-                New
-              </v-chip>
-              <v-chip
-                v-if="marker.status === 'removed'"
-                color="grey"
-                size="x-small"
-                class="ml-2"
-              >
-                Removed
-              </v-chip>
-            </div>
-            
-            <v-text-field
-              :model-value="marker.value"
-              :label="`Value for ${marker.identifier}`"
-              :placeholder="`Enter replacement value for ${marker.identifier}`"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="flex-grow-1"
-              :disabled="marker.status === 'removed'"
-              @update:model-value="handleValueChange(marker.identifier, $event)"
-              @keydown.enter="handleEnterKey(marker.identifier)"
-            />
-
-            <div
-              class="text-caption text-grey-darken-1 text-right flex-shrink-0"
-              style="min-width: 80px;"
-            >
-              <div>{{ marker.documents.length }} document{{ marker.documents.length !== 1 ? 's' : '' }}</div>
-              <v-tooltip location="top">
-                <template #activator="slotProps">
-                  <v-icon
-                    v-bind="slotProps.props"
-                    icon="mdi-information-outline"
-                    size="16"
-                    class="mt-1"
-                  />
-                </template>
-                <div class="text-caption">
-                  {{ marker.documents.join(', ') }}
-                </div>
-              </v-tooltip>
-            </div>
-          </div>
-        </v-list-item>
+          :ref="(el) => setMarkerItemRef(el, marker.identifier)"
+          :marker="marker"
+          @value-change="handleValueChange"
+          @enter-pressed="handleEnterKey"
+        />
       </v-list>
     </v-card-text>
 
     <!-- Status Legend -->
-    <v-divider v-if="markers.length > 0" />
+    <v-divider v-if="markers.length > 0 && !noCard" />
     <v-card-actions
-      v-if="markers.length > 0"
+      v-if="markers.length > 0 && !noCard"
       class="pa-3"
     >
       <div class="d-flex align-center gap-4 text-caption">
         <div class="d-flex align-center">
-          <v-avatar
+          <v-icon
+            icon="mdi-check"
             color="primary"
             size="20"
             class="mr-1"
-          >
-            <v-icon
-              icon="mdi-check"
-              size="12"
-            />
-          </v-avatar>
+          />
           <span>Active</span>
         </div>
         <div class="d-flex align-center">
-          <v-avatar
+          <v-icon
+            icon="mdi-star"
             color="warning"
             size="20"
             class="mr-1"
-          >
-            <v-icon
-              icon="mdi-star"
-              size="12"
-            />
-          </v-avatar>
+          />
           <span>New</span>
         </div>
         <div class="d-flex align-center">
-          <v-avatar
+          <v-icon
+            icon="mdi-minus"
             color="grey"
             size="20"
             class="mr-1"
-          >
-            <v-icon
-              icon="mdi-minus"
-              size="12"
-            />
-          </v-avatar>
+          />
           <span>Removed</span>
         </div>
       </div>
     </v-card-actions>
   </v-card>
+  <template v-else>
+    <!-- No card wrapper mode - just the content -->
+    <div class="marker-list-content-wrapper">
+      <!-- Loading State -->
+      <div
+        v-if="loading"
+        class="d-flex justify-center align-center pa-8"
+      >
+        <v-progress-circular
+          indeterminate
+          color="primary"
+          size="48"
+        />
+      </div>
+
+      <!-- Error State -->
+      <v-alert
+        v-else-if="error"
+        type="error"
+        variant="tonal"
+        class="ma-4"
+        density="compact"
+        closable
+      >
+        {{ error }}
+      </v-alert>
+
+      <!-- Empty State -->
+      <div
+        v-else-if="markers.length === 0"
+        class="empty-state pa-8 text-center"
+      >
+        <v-icon
+          icon="mdi-file-document-outline"
+          size="64"
+          color="grey-lighten-1"
+          class="mb-4"
+        />
+        <p class="text-body-1 text-grey-darken-1 mb-2">
+          No markers detected
+        </p>
+        <p class="text-body-2 text-grey-darken-2">
+          Select a folder containing .docx files to scan for markers
+        </p>
+      </div>
+
+      <!-- Marker List -->
+      <v-list
+        v-else
+        class="marker-list-content"
+      >
+        <MarkerItem
+          v-for="marker in markers"
+          :key="marker.identifier"
+          :ref="(el) => setMarkerItemRef(el, marker.identifier)"
+          :marker="marker"
+          @value-change="handleValueChange"
+          @enter-pressed="handleEnterKey"
+        />
+      </v-list>
+    </div>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { Marker } from '../../shared/types';
+import MarkerItem from './MarkerItem.vue';
 
 /**
  * MarkerList Component
@@ -237,6 +228,8 @@ interface Props {
   error?: string;
   /** Whether the component is in a saving state */
   saving?: boolean;
+  /** Whether to omit the card wrapper (for embedding in other cards) */
+  noCard?: boolean;
 }
 
 interface Emits {
@@ -252,9 +245,21 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   error: '',
   saving: false,
+  noCard: false,
 });
 
 const emit = defineEmits<Emits>();
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+/** Map of marker item refs for keyboard navigation */
+const markerItemRefs = ref<Map<string, InstanceType<typeof MarkerItem>>>(new Map());
+
+// ============================================================================
+// COMPUTED
+// ============================================================================
 
 /**
  * Total number of markers
@@ -271,35 +276,16 @@ const markerCountColor = computed(() => {
   return 'success';
 });
 
-/**
- * Get the color for a marker status
- */
-function getStatusColor(status: Marker['status']): string {
-  switch (status) {
-    case 'active':
-      return 'primary';
-    case 'new':
-      return 'warning';
-    case 'removed':
-      return 'grey';
-    default:
-      return 'grey';
-  }
-}
+// ============================================================================
+// METHODS
+// ============================================================================
 
 /**
- * Get the icon for a marker status
+ * Set marker item ref for keyboard navigation
  */
-function getStatusIcon(status: Marker['status']): string {
-  switch (status) {
-    case 'active':
-      return 'mdi-check';
-    case 'new':
-      return 'mdi-star';
-    case 'removed':
-      return 'mdi-minus';
-    default:
-      return 'mdi-help';
+function setMarkerItemRef(el: unknown, identifier: string): void {
+  if (el && typeof el === 'object' && 'focus' in el) {
+    markerItemRefs.value.set(identifier, el as InstanceType<typeof MarkerItem>);
   }
 }
 
@@ -312,10 +298,39 @@ function handleValueChange(identifier: string, value: string): void {
 
 /**
  * Handle Enter key press in marker input
+ * Moves focus to the next marker input
  */
 function handleEnterKey(identifier: string): void {
+  const markerIndex = props.markers.findIndex(m => m.identifier === identifier);
+  if (markerIndex !== -1 && markerIndex < props.markers.length - 1) {
+    const nextMarker = props.markers[markerIndex + 1];
+    const nextItem = markerItemRefs.value.get(nextMarker.identifier);
+    if (nextItem) {
+      nextItem.focus();
+    }
+  }
   emit('enter-pressed', identifier);
 }
+
+/**
+ * Focus first marker input
+ */
+function focusFirstMarkerInput(): void {
+  if (props.markers.length > 0) {
+    const firstMarker = props.markers[0];
+    const firstItem = markerItemRefs.value.get(firstMarker.identifier);
+    if (firstItem) {
+      firstItem.focus();
+    }
+  }
+}
+
+/**
+ * Expose methods for parent components
+ */
+defineExpose({
+  focusFirstMarkerInput,
+});
 </script>
 
 <style scoped>
