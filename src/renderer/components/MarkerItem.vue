@@ -33,7 +33,7 @@
       </v-chip>
     </v-list-item-title>
 
-    <v-list-item-subtitle class="mt-1">
+    <v-list-item-subtitle class="mt-1 d-flex">
       <v-text-field
         :model-value="marker.value"
         :label="`Value for ${marker.identifier}`"
@@ -43,6 +43,7 @@
         variant="outlined"
         density="compact"
         hide-details="auto"
+        class="flex-grow-1"
         :disabled="marker.status === 'removed'"
         @update:model-value="handleValueChange"
         @keydown.enter="handleEnterKey"
@@ -257,5 +258,22 @@ defineExpose({
 
 .marker-item--removed .v-text-field {
   opacity: 0.7;
+}
+
+/* Ensure the list item content area expands to fill available space */
+.marker-item :deep(.v-list-item__content) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Ensure the subtitle takes full available width and text field expands */
+.marker-item :deep(.v-list-item-subtitle) {
+  flex: 1;
+  width: 100%;
+}
+
+.marker-item :deep(.v-text-field) {
+  flex: 1;
+  min-width: 0;
 }
 </style>

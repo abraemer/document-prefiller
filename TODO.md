@@ -914,6 +914,26 @@ This document breaks down the PLAN.md implementation into small, self-contained 
   - No errors occur when opening the folder
 - **Dependencies**: 7.5, 10.4
 
+### 11.6 Refactor to Use MarkerList and MarkerItem Components
+- **Description**: Refactor `src/renderer/App.vue` to use the existing `MarkerList.vue` and `MarkerItem.vue` components instead of having the marker list embedded directly in App.vue.
+- **Root Cause**: The application currently has marker list UI code duplicated in App.vue, while dedicated components (MarkerList.vue and MarkerItem.vue) exist but are unused. This violates DRY principles and makes maintenance harder.
+- **Fix**:
+  1. Modify MarkerList.vue to make the card wrapper optional (add a `noCard` prop)
+  2. Import and use MarkerList component in App.vue
+  3. Pass markers, loading, and error states as props
+  4. Handle value-change and enter-pressed events from MarkerList
+  5. Remove the embedded marker list code from App.vue
+  6. Update MarkerList to support keyboard navigation (refs for inputs)
+- **Validation Criteria**:
+  - App.vue uses MarkerList component instead of embedded code
+  - All functionality works the same as before (value entry, keyboard navigation, auto-save)
+  - MarkerList and MarkerItem components are properly utilized
+  - Code is more maintainable and follows Vue best practices
+  - No duplicate UI code between App.vue and MarkerList.vue
+  - All unit tests pass
+  - Manual testing confirms no regression in functionality
+- **Dependencies**: 5.3, 5.4, 7.4
+
 ---
 
 ## Summary

@@ -141,17 +141,17 @@
                             :key="marker.identifier"
                             class="px-4 py-2"
                           >
-                            <template #prepend>
+                            <div class="d-flex align-center w-100 ga-3">
                               <v-icon
                                 :color="getMarkerStatusColor(marker.status)"
                                 :icon="getMarkerStatusIcon(marker.status)"
-                                class="mr-3"
+                                class="flex-shrink-0"
                               />
-                            </template>
-                            <v-list-item-title class="font-weight-medium">
-                              {{ marker.fullMarker }}
-                            </v-list-item-title>
-                            <template #append>
+                              
+                              <div class="marker-name flex-shrink-0 font-weight-medium">
+                                {{ marker.fullMarker }}
+                              </div>
+                              
                               <v-text-field
                                 :ref="(el) => setMarkerInputRef(el, marker.identifier)"
                                 v-model="marker.value"
@@ -160,12 +160,12 @@
                                 placeholder="Enter value..."
                                 single-line
                                 hide-details
-                                style="max-width: 300px"
+                                class="flex-grow-1"
                                 @update:model-value="handleMarkerValueChange(marker)"
                                 @keydown.enter.prevent="handleEnterKey(marker.identifier)"
                                 @keydown.tab="handleTabKey($event, marker.identifier)"
                               />
-                            </template>
+                            </div>
                           </v-list-item>
                         </v-list>
                         <v-list
@@ -931,6 +931,12 @@ onUnmounted(() => {
 
 .flex-grow-1 {
   flex-grow: 1;
+}
+
+/* Marker name should not take too much space */
+.marker-name {
+  min-width: 150px;
+  max-width: 250px;
 }
 
 /* Custom scrollbar for lists */

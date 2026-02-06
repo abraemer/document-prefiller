@@ -88,40 +88,38 @@
         <v-list-item
           v-for="marker in markers"
           :key="marker.identifier"
-          class="marker-item"
+          class="marker-item px-4 py-2"
           :class="`marker-item--${marker.status}`"
         >
-          <template #prepend>
+          <div class="d-flex align-center w-100 ga-3">
             <v-avatar
               :color="getStatusColor(marker.status)"
               size="40"
-              class="mr-3"
+              class="flex-shrink-0"
             >
               <v-icon :icon="getStatusIcon(marker.status)" />
             </v-avatar>
-          </template>
 
-          <v-list-item-title class="d-flex align-center">
-            <span class="font-weight-medium">{{ marker.fullMarker }}</span>
-            <v-chip
-              v-if="marker.status === 'new'"
-              color="warning"
-              size="x-small"
-              class="ml-2"
-            >
-              New
-            </v-chip>
-            <v-chip
-              v-if="marker.status === 'removed'"
-              color="grey"
-              size="x-small"
-              class="ml-2"
-            >
-              Removed
-            </v-chip>
-          </v-list-item-title>
-
-          <v-list-item-subtitle class="mt-1">
+            <div class="marker-name flex-shrink-0">
+              <span class="font-weight-medium">{{ marker.fullMarker }}</span>
+              <v-chip
+                v-if="marker.status === 'new'"
+                color="warning"
+                size="x-small"
+                class="ml-2"
+              >
+                New
+              </v-chip>
+              <v-chip
+                v-if="marker.status === 'removed'"
+                color="grey"
+                size="x-small"
+                class="ml-2"
+              >
+                Removed
+              </v-chip>
+            </div>
+            
             <v-text-field
               :model-value="marker.value"
               :label="`Value for ${marker.identifier}`"
@@ -129,14 +127,16 @@
               variant="outlined"
               density="compact"
               hide-details
+              class="flex-grow-1"
               :disabled="marker.status === 'removed'"
               @update:model-value="handleValueChange(marker.identifier, $event)"
               @keydown.enter="handleEnterKey(marker.identifier)"
             />
-          </v-list-item-subtitle>
 
-          <template #append>
-            <div class="text-caption text-grey-darken-1 text-right">
+            <div
+              class="text-caption text-grey-darken-1 text-right flex-shrink-0"
+              style="min-width: 80px;"
+            >
               <div>{{ marker.documents.length }} document{{ marker.documents.length !== 1 ? 's' : '' }}</div>
               <v-tooltip location="top">
                 <template #activator="slotProps">
@@ -152,7 +152,7 @@
                 </div>
               </v-tooltip>
             </div>
-          </template>
+          </div>
         </v-list-item>
       </v-list>
     </v-card-text>
@@ -350,6 +350,12 @@ function handleEnterKey(identifier: string): void {
 
 .gap-4 {
   gap: 1rem;
+}
+
+/* Marker name should not take too much space */
+.marker-name {
+  min-width: 200px;
+  max-width: 300px;
 }
 
 /* Custom scrollbar for marker list */
