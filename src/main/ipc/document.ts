@@ -3,7 +3,7 @@
  * Handles document replacement operations
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, shell } from 'electron';
 import type {
   ReplaceDocumentsRequest,
   ReplaceDocumentsResponse,
@@ -89,6 +89,11 @@ export function registerDocumentHandlers() {
           });
         });
       });
+
+      // Open output folder after successful replacement
+      if (result.success) {
+        await shell.openPath(outputFolder);
+      }
 
       return {
         success: result.success,
