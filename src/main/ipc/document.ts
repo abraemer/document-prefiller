@@ -23,7 +23,7 @@ export function registerDocumentHandlers() {
    * Handle document replacement
    * Replaces markers in documents with their corresponding values
    */
-  ipcMain.handle('document:replace', async (event, request: ReplaceDocumentsRequest): Promise<ReplaceDocumentsResponse> => {
+  ipcMain.handle('document:replace', async (_event, request: ReplaceDocumentsRequest): Promise<ReplaceDocumentsResponse> => {
     try {
       const { folderPath, markers, outputFolder: requestedOutputFolder } = request;
 
@@ -125,7 +125,7 @@ export function registerDocumentHandlers() {
    * Handle getting documents
    * Retrieves documents from a folder
    */
-  ipcMain.handle('document:get', async (event, request: GetDocumentsRequest): Promise<GetDocumentsResponse> => {
+  ipcMain.handle('document:get', async (_event, request: GetDocumentsRequest): Promise<GetDocumentsResponse> => {
     try {
       const { folderPath } = request;
 

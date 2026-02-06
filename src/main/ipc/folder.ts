@@ -23,7 +23,7 @@ export function registerFolderHandlers() {
    * Handle folder scanning
    * Scans a folder for documents with markers
    */
-  ipcMain.handle('folder:scan', async (event, request: ScanFolderRequest): Promise<ScanFolderResponse> => {
+  ipcMain.handle('folder:scan', async (_event, request: ScanFolderRequest): Promise<ScanFolderResponse> => {
     try {
       const { folderPath, prefix = DEFAULT_PREFIX } = request;
 
@@ -143,7 +143,7 @@ export function registerFolderHandlers() {
    * Handle checking output folder for existing documents
    * Checks if the output folder contains documents that would be overwritten
    */
-  ipcMain.handle('folder:checkOutput', async (event, request: CheckOutputFolderRequest): Promise<CheckOutputFolderResponse> => {
+  ipcMain.handle('folder:checkOutput', async (_event, request: CheckOutputFolderRequest): Promise<CheckOutputFolderResponse> => {
     try {
       const { sourceFolder, outputFolder } = request;
 

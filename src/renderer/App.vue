@@ -861,56 +861,6 @@ async function scanFolder(): Promise<void> {
   }
 }
 
-/**
- * Show error notification
- */
-function _showErrorNotification(title: string, message: string): void {
-  errorTitle.value = title;
-  errorMessage.value = message;
-  showError.value = true;
-}
-
-/**
- * Show success notification
- */
-function _showSuccessNotification(title: string, message: string): void {
-  successTitle.value = title;
-  successMessage.value = message;
-  showSuccess.value = true;
-}
-
-/**
- * Show warning notification
- */
-function _showWarningNotification(title: string, message: string): void {
-  warningTitle.value = title;
-  warningMessage.value = message;
-  showWarning.value = true;
-}
-
-/**
- * Update loading state with progress
- */
-function _updateLoadingProgress(message: string, progress?: number, details?: string): void {
-  loadingMessage.value = message;
-  if (progress !== undefined) {
-    showProgress.value = true;
-    progressValue.value = progress;
-  }
-  if (details) {
-    progressDetails.value = details;
-  }
-}
-
-/**
- * Clear all notifications
- */
-function _clearNotifications(): void {
-  showError.value = false;
-  showSuccess.value = false;
-  showWarning.value = false;
-}
-
 // ============================================================================
 // LIFECYCLE
 // ============================================================================

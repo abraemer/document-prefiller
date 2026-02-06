@@ -98,8 +98,8 @@ const settingsAPI = {
   /**
    * Save application settings
    */
-  saveSettings: async (settings: AppSettings): Promise<SaveSettingsResponse> => {
-    return await ipcRenderer.invoke('settings:save', { settings } as SaveSettingsRequest)
+  saveSettings: async (request: SaveSettingsRequest): Promise<SaveSettingsResponse> => {
+    return await ipcRenderer.invoke('settings:save', request)
   },
 }
 

@@ -397,7 +397,7 @@ export const settings = {
   ): Promise<IpcResponse<SaveSettingsResponse>> {
     return executeIpcCall<SaveSettingsResponse>(
       'settings:save',
-      () => window.api.settings.saveSettings(settings),
+      () => window.api.settings.saveSettings({ settings }),
       options
     );
   },
