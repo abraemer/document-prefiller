@@ -410,7 +410,7 @@ export const settings = {
 /**
  * Window operations API
  */
-export const window = {
+export const windowOps = {
   /**
    * Minimize the window
    */
@@ -563,7 +563,7 @@ export const ipc = {
   folder,
   document,
   settings,
-  window,
+  window: windowOps,
   events,
   isSuccess,
   isError,
