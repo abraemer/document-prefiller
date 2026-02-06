@@ -62,10 +62,12 @@
   "build": {
     "appId": "com.documentprefiller.app",
     "productName": "Document Prefiller",
+    "publish": null,
     "directories": {
-      "output": "release/${version}",
+      "output": "release",
       "buildResources": "public/icons"
     },
+    "artifactName": "${productName}.${ext}",
     "files": [
       "out/**/*",
       "package.json"

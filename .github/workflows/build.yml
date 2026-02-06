@@ -48,10 +48,10 @@ jobs:
         with:
           name: ${{ matrix.platform }}-build
           path: |
-            release/${{ github.ref_name }}/*.AppImage
-            release/${{ github.ref_name }}/*.dmg
-            release/${{ github.ref_name }}/*.zip
-            release/${{ github.ref_name }}/*.exe
+            release/*.AppImage
+            release/*.dmg
+            release/*.zip
+            release/*.exe
           retention-days: 7
 
   attach-to-release:
@@ -68,5 +68,9 @@ jobs:
       - name: Attach artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./artifacts/**/*
+          files: |
+            ./artifacts/**/*.AppImage
+            ./artifacts/**/*.dmg
+            ./artifacts/**/*.zip
+            ./artifacts/**/*.exe
           fail_on_unmatched_files: true
