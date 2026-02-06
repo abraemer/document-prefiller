@@ -85,8 +85,8 @@ export function escapeRegexSpecialChars(str: string): string {
 /**
  * Create a regex pattern for marker detection
  *
- * The pattern uses word boundaries to ensure markers are detected correctly
- * at word boundaries, not as part of larger words.
+ * The pattern uses a word boundary at the start and a negative lookahead at the end
+ * to ensure markers are detected correctly and not as part of larger words.
  *
  * @param prefix - Marker prefix to use
  * @returns RegExp object for marker detection
@@ -101,8 +101,8 @@ export function createMarkerRegex(prefix: string): RegExp {
   // \b - Word boundary (matches at start of string or after non-word character)
   // ${escapedPrefix} - The escaped prefix
   // ([A-Za-z0-9_]+) - Capture group for identifier (alphanumeric + underscore)
-  // \b - Word boundary (matches at end of string or before non-word character)
-  const pattern = `\\b${escapedPrefix}([A-Za-z0-9_]+)\\b`;
+  // (?![A-Za-z0-9_]) - Negative lookahead: ensures identifier doesn't continue with more word characters
+  const pattern = `\\b${escapedPrefix}([A-Za-z0-9_]+)(?![A-Za-z0-9_])`;
 
   return new RegExp(pattern, 'g');
 }

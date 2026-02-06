@@ -168,18 +168,32 @@ async function extractTextFromZip(zip: JSZip, filePath?: string): Promise<string
  * @returns Extracted text content
  */
 function extractTextFromXml(xmlContent: string): string {
-  // Extract text from <w:t> tags (text runs)
-  const textMatches = xmlContent.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-  const textParts: string[] = [];
+  // Extract paragraphs (<w:p> tags) to preserve paragraph boundaries
+  const paragraphMatches = xmlContent.matchAll(/<w:p[^>]*>(.*?)<\/w:p>/gs);
+  const paragraphs: string[] = [];
 
-  for (const match of textMatches) {
-    if (match[1]) {
-      textParts.push(match[1]);
+  for (const paragraphMatch of paragraphMatches) {
+    const paragraphXml = paragraphMatch[1];
+    
+    // Extract text from <w:t> tags within this paragraph
+    const textMatches = paragraphXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+    const textParts: string[] = [];
+
+    for (const match of textMatches) {
+      if (match[1]) {
+        textParts.push(match[1]);
+      }
+    }
+
+    // Join text parts within the paragraph
+    const paragraphText = textParts.join('');
+    if (paragraphText.trim()) {
+      paragraphs.push(paragraphText);
     }
   }
 
-  // Join text parts and normalize whitespace
-  let text = textParts.join('');
+  // Join paragraphs with space to preserve word boundaries
+  let text = paragraphs.join(' ');
 
   // Handle tabs and line breaks
   text = text.replace(/\t/g, ' ');

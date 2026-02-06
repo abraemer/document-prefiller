@@ -853,9 +853,72 @@ This document breaks down the PLAN.md implementation into small, self-contained 
 
 ---
 
+## Phase 11: Bug Fixes
+
+### 11.1 Fix Marker Detection Regex Pattern
+- **Description**: Fix the regex pattern in `src/main/utils/marker-detection.ts` to correctly detect markers without including adjacent word characters. Currently, markers like 'REPLACEME-TITLEMore' are detected instead of 'REPLACEME-TITLE'.
+- **Root Cause**: The regex pattern uses word boundaries (`\b`) which can match markers concatenated with other text.
+- **Fix**: Change the regex in `createMarkerRegex()` function to use a negative lookahead: `${escapedPrefix}([A-Za-z0-9_]+)(?![A-Za-z0-9_])` to ensure the identifier doesn't continue with more word characters.
+- **Validation Criteria**:
+  - Markers are correctly detected as 'REPLACEME-TITLE' and 'REPLACEME-DATA' (not 'REPLACEME-TITLEMore' or 'REPLACEME-DATAdo')
+  - Unit tests in `tests/unit/marker-detection.test.ts` pass
+  - Manual testing with test.docx confirms correct detection
+  - No false positives or false negatives in marker detection
+- **Dependencies**: 3.3
+
+### 11.2 Fix Textbox Width in MarkerItem Component
+- **Description**: Fix the layout of text input fields in `src/renderer/components/MarkerItem.vue` to make them expand and fill available space instead of being too narrow (~1/20 of row width).
+- **Root Cause**: The `v-text-field` has no width-expanding properties, and Vuetify's list item layout constrains the subtitle content.
+- **Fix**: Add `class="flex-grow-1"` or custom CSS with `flex: 1` to the text field to make it expand to fill available space.
+- **Validation Criteria**:
+  - Textboxes occupy most of the available row width
+  - Layout is responsive and adapts to window resizing
+  - No horizontal overflow occurs
+  - Visual appearance is improved and user-friendly
+  - Manual testing confirms textboxes are appropriately sized
+- **Dependencies**: 5.4
+
+### 11.3 Fix Replacement Logic to Use Marker Values
+- **Description**: Fix the replacement logic in `src/main/ipc/document.ts` to use the user-entered replacement values instead of marker identifiers.
+- **Root Cause**: Line 62 assigns `values[marker.id] = marker.name;` instead of `marker.value`, causing replacement to use the marker identifier (e.g., "TITLE") instead of the user-entered text.
+- **Fix**: Change line 62 to `values[marker.id] = marker.value;`
+- **Validation Criteria**:
+  - Replacement uses user-entered values instead of marker names
+  - Markers in documents are replaced with the correct values
+  - Manual testing with test.docx confirms replacement works
+  - Output files contain replaced text, not marker identifiers
+  - Unit tests in `tests/unit/replacer.test.ts` pass
+- **Dependencies**: 4.2, 7.5
+
+### 11.4 Disable Automatic Backup File Creation
+- **Description**: Fix the storage service to stop creating `.bak` files on every save operation.
+- **Root Cause**: The `writeSaveFile()` function in `src/main/services/storage.ts` has `createBackup = true` as the default parameter (line 434), causing a new backup file to be created every time a user enters a value.
+- **Fix**: Change the default parameter from `createBackup = true` to `createBackup = false` so backups are only created when explicitly requested.
+- **Validation Criteria**:
+  - No `.bak` files are created during normal save operations
+  - Save file is overwritten directly without creating backups
+  - Existing `.bak` files can be cleaned up
+  - Manual testing confirms no new `.bak` files are created
+  - Unit tests in `tests/unit/storage.test.ts` pass
+- **Dependencies**: 3.6
+
+### 11.5 Add Open Output Folder Feature
+- **Description**: Add functionality to automatically open the output folder after successful document replacement.
+- **Root Cause**: Feature not implemented - after replacement completes, there's no mechanism to open the output folder.
+- **Fix**: Add a call to `shell.openPath()` or `shell.showItemInFolder()` after successful replacement in `src/main/ipc/document.ts` (around line 91).
+- **Validation Criteria**:
+  - Output folder opens automatically after replacement completes
+  - File manager opens showing the output folder contents
+  - Feature works on all target platforms (Windows, macOS, Linux)
+  - Manual testing confirms folder opens correctly
+  - No errors occur when opening the folder
+- **Dependencies**: 7.5, 10.4
+
+---
+
 ## Summary
 
-This TODO document breaks down the 10 development phases from PLAN.md into **88 granular, actionable steps**. Each step includes:
+This TODO document breaks down the 11 development phases from PLAN.md into **93 granular, actionable steps**. Each step includes:
 
 - **Clear description** of what needs to be done
 - **Validation criteria** to verify successful completion
