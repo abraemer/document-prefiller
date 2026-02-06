@@ -92,6 +92,8 @@ export interface DocumentMarker {
   id: string;
   /** Marker name */
   name: string;
+  /** Marker value (user-entered replacement text) */
+  value: string;
   /** Marker prefix */
   prefix: string;
   /** Whether marker is enabled */

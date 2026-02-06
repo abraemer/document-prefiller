@@ -604,7 +604,8 @@ async function handleReplace(): Promise<void> {
       .filter(m => m.status !== 'removed')
       .map(m => ({
         id: m.identifier,
-        name: m.value,
+        name: m.fullMarker,
+        value: m.value,
         prefix: markerPrefix.value,
         enabled: true,
       }));

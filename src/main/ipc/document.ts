@@ -59,7 +59,7 @@ export function registerDocumentHandlers() {
           prefix = marker.prefix;
         }
 
-        values[marker.id] = marker.name;
+        values[marker.id] = marker.value;
       }
 
       // Create output folder path
