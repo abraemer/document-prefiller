@@ -13,8 +13,6 @@ import {
 import {
   SAVE_FILE_NAME,
   DEFAULT_PREFIX,
-  SAVE_FILE_BACKUP_EXTENSION,
-  MAX_SAVE_FILE_BACKUPS,
 } from '../../shared/constants';
 
 // ============================================================================
@@ -80,12 +78,6 @@ export interface ReadSaveFileOptions {
  */
 export interface WriteSaveFileOptions {
   /**
-   * Whether to create a backup before writing
-   * @default true
-   */
-  createBackup?: boolean;
-
-  /**
    * Whether to use atomic write (write to temp file then rename)
    * @default true
    */
@@ -138,11 +130,6 @@ export interface WriteSaveFileResult {
   filePath?: string;
 
   /**
-   * Path to the backup file (if created)
-   */
-  backupPath?: string;
-
-  /**
    * Error message if operation failed
    */
   error?: string;
@@ -163,20 +150,6 @@ export function getSaveFilePath(folderPath: string): string {
 }
 
 /**
- * Get the path to a backup save file
- *
- * @param folderPath - Path to the folder
- * @param timestamp - Timestamp for the backup
- * @returns Path to the backup file
- */
-export function getBackupFilePath(folderPath: string, timestamp: number): string {
-  return path.join(
-    folderPath,
-    `${SAVE_FILE_NAME}${SAVE_FILE_BACKUP_EXTENSION}.${timestamp}`
-  );
-}
-
-/**
  * Check if a save file exists in a folder
  *
  * @param folderPath - Path to the folder
@@ -190,99 +163,6 @@ export async function saveFileExists(folderPath: string): Promise<boolean> {
     return stats.isFile();
   } catch {
     return false;
-  }
-}
-
-// ============================================================================
-// BACKUP MANAGEMENT
-// ============================================================================
-
-/**
- * Create a backup of the save file
- *
- * @param folderPath - Path to the folder containing the save file
- * @returns Promise that resolves to the backup file path
- * @throws StorageError if backup creation fails
- */
-export async function createBackupFile(folderPath: string): Promise<string> {
-  const filePath = getSaveFilePath(folderPath);
-
-  // Check if save file exists
-  if (!(await saveFileExists(folderPath))) {
-    throw new StorageError(`Cannot create backup: save file does not exist at ${filePath}`);
-  }
-
-  // Create backup with timestamp
-  const timestamp = Date.now();
-  const backupPath = getBackupFilePath(folderPath, timestamp);
-
-  try {
-    await fs.promises.copyFile(filePath, backupPath);
-  } catch (error) {
-    throw new StorageError(
-      `Failed to create backup at ${backupPath}`,
-      error instanceof Error ? error : undefined
-    );
-  }
-
-  // Clean up old backups
-  await cleanupOldBackups(folderPath);
-
-  return backupPath;
-}
-
-/**
- * Clean up old backup files, keeping only the most recent ones
- *
- * @param folderPath - Path to the folder containing backups
- * @returns Promise that resolves when cleanup is complete
- */
-export async function cleanupOldBackups(folderPath: string): Promise<void> {
-  try {
-    const files = await fs.promises.readdir(folderPath);
-    const backupFiles = files
-      .filter((file) => file.startsWith(SAVE_FILE_NAME + SAVE_FILE_BACKUP_EXTENSION))
-      .map((file) => ({
-        name: file,
-        path: path.join(folderPath, file),
-        timestamp: parseInt(file.split('.').pop() || '0', 10),
-      }))
-      .filter((file) => !isNaN(file.timestamp))
-      .sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
-
-    // Delete old backups beyond the limit
-    const backupsToDelete = backupFiles.slice(MAX_SAVE_FILE_BACKUPS);
-    for (const backup of backupsToDelete) {
-      try {
-        await fs.promises.unlink(backup.path);
-      } catch (error) {
-        console.warn(`Failed to delete old backup ${backup.path}:`, error);
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to clean up old backups:', error);
-  }
-}
-
-/**
- * Get all backup files for a folder
- *
- * @param folderPath - Path to the folder
- * @returns Promise that resolves to array of backup file paths
- */
-export async function getBackupFiles(folderPath: string): Promise<string[]> {
-  try {
-    const files = await fs.promises.readdir(folderPath);
-    return files
-      .filter((file) => file.startsWith(SAVE_FILE_NAME + SAVE_FILE_BACKUP_EXTENSION))
-      .map((file) => path.join(folderPath, file))
-      .sort((a, b) => {
-        const timestampA = parseInt(a.split('.').pop() || '0', 10);
-        const timestampB = parseInt(b.split('.').pop() || '0', 10);
-        return timestampB - timestampA; // Sort by timestamp descending
-      });
-  } catch {
-    return [];
   }
 }
 
@@ -315,7 +195,6 @@ export async function readSaveFile(
       // Create default save file
       const defaultFile = createDefaultReplacementValuesFile(defaultPrefix);
       const writeResult = await writeSaveFile(folderPath, defaultFile, {
-        createBackup: false,
         atomic: true,
         updateTimestamp: true,
       });
@@ -431,7 +310,6 @@ export async function writeSaveFile(
   options: WriteSaveFileOptions = {}
 ): Promise<WriteSaveFileResult> {
   const {
-    createBackup = true,
     atomic = true,
     updateTimestamp = true,
   } = options;
@@ -453,17 +331,6 @@ export async function writeSaveFile(
   // Update timestamp if requested
   if (updateTimestamp) {
     data.lastModified = new Date().toISOString();
-  }
-
-  // Create backup if requested and file exists
-  let backupPath: string | undefined;
-  if (createBackup && (await saveFileExists(folderPath))) {
-    try {
-      backupPath = await createBackupFile(folderPath);
-    } catch (error) {
-      console.warn('Failed to create backup:', error);
-      // Continue with write even if backup fails
-    }
   }
 
   // Prepare file content
@@ -490,7 +357,6 @@ export async function writeSaveFile(
   return {
     success: true,
     filePath,
-    backupPath,
   };
 }
 
@@ -537,55 +403,6 @@ export async function deleteSaveFile(folderPath: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.warn(`Failed to delete save file at ${filePath}:`, error);
-    return false;
-  }
-}
-
-/**
- * Restore a save file from a backup
- *
- * @param folderPath - Path to the folder
- * @param backupPath - Path to the backup file to restore
- * @returns Promise that resolves to true if restore was successful
- */
-export async function restoreFromBackup(
-  folderPath: string,
-  backupPath: string
-): Promise<boolean> {
-  const filePath = getSaveFilePath(folderPath);
-
-  // Check if backup exists
-  try {
-    await fs.promises.access(backupPath, fs.constants.R_OK);
-  } catch {
-    return false;
-  }
-
-  // Validate backup file
-  let fileContent: string;
-  try {
-    fileContent = await fs.promises.readFile(backupPath, 'utf-8');
-  } catch {
-    return false;
-  }
-
-  let parsedData: unknown;
-  try {
-    parsedData = JSON.parse(fileContent);
-  } catch {
-    return false;
-  }
-
-  const validationResult = validateReplacementValuesFile(parsedData);
-  if (!validationResult.valid) {
-    return false;
-  }
-
-  // Restore backup
-  try {
-    await fs.promises.copyFile(backupPath, filePath);
-    return true;
-  } catch {
     return false;
   }
 }

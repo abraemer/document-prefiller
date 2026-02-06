@@ -13,12 +13,7 @@ import {
   writeSaveFileSync,
   saveFileExists,
   getSaveFilePath,
-  getBackupFilePath,
-  createBackupFile,
-  cleanupOldBackups,
-  getBackupFiles,
   deleteSaveFile,
-  restoreFromBackup,
   getSaveFileLastModified,
   StorageError,
   SaveFileNotFoundError,
@@ -52,14 +47,6 @@ describe('Storage Service', () => {
     });
   });
 
-  describe('getBackupFilePath', () => {
-    it('should return correct path to backup file', () => {
-      const timestamp = 1234567890;
-      const result = getBackupFilePath('/test/folder', timestamp);
-      expect(result).toBe('/test/folder/.replacement-values.json.bak.1234567890');
-    });
-  });
-
   describe('saveFileExists', () => {
     it('should return false when save file does not exist', async () => {
       const result = await saveFileExists(TEST_DIR);
@@ -86,7 +73,7 @@ describe('Storage Service', () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title', DATA: 'Test Data' };
 
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      await writeSaveFile(TEST_DIR, testData);
 
       const result = await readSaveFile(TEST_DIR);
       expect(result.success).toBe(true);
@@ -135,7 +122,7 @@ describe('Storage Service', () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title' };
 
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      await writeSaveFile(TEST_DIR, testData);
 
       const result = await readSaveFileSync(TEST_DIR);
       expect(result.prefix).toBe(DEFAULT_PREFIX);
@@ -166,7 +153,7 @@ describe('Storage Service', () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title', DATA: 'Test Data' };
 
-      const result = await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      const result = await writeSaveFile(TEST_DIR, testData);
       expect(result.success).toBe(true);
       expect(result.filePath).toBeDefined();
 
@@ -185,7 +172,7 @@ describe('Storage Service', () => {
       testData.values = { TITLE: 'Test Title' };
 
       const beforeWrite = new Date();
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      await writeSaveFile(TEST_DIR, testData);
       const afterWrite = new Date();
 
       const readResult = await readSaveFile(TEST_DIR);
@@ -205,7 +192,7 @@ describe('Storage Service', () => {
       const originalTimestamp = '2024-01-01T00:00:00.000Z';
       testData.lastModified = originalTimestamp;
 
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false, updateTimestamp: false });
+      await writeSaveFile(TEST_DIR, testData, { updateTimestamp: false });
 
       const readResult = await readSaveFile(TEST_DIR);
       expect(readResult.success).toBe(true);
@@ -225,29 +212,11 @@ describe('Storage Service', () => {
       expect(result.error).toContain('validation failed');
     });
 
-    it('should create backup when createBackup is true', async () => {
-      const testData1 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData1.values = { TITLE: 'Original' };
-
-      await writeSaveFile(TEST_DIR, testData1, { createBackup: false });
-
-      const testData2 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData2.values = { TITLE: 'Updated' };
-
-      const result = await writeSaveFile(TEST_DIR, testData2, { createBackup: true });
-      expect(result.success).toBe(true);
-      expect(result.backupPath).toBeDefined();
-
-      // Verify backup exists
-      const backupFiles = await getBackupFiles(TEST_DIR);
-      expect(backupFiles.length).toBeGreaterThan(0);
-    });
-
     it('should use atomic write by default', async () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title' };
 
-      const result = await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      const result = await writeSaveFile(TEST_DIR, testData);
       expect(result.success).toBe(true);
 
       // Verify file was written atomically (no temp files left)
@@ -277,7 +246,7 @@ describe('Storage Service', () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title' };
 
-      await expect(writeSaveFileSync(TEST_DIR, testData, { createBackup: false })).resolves.not.toThrow();
+      await expect(writeSaveFileSync(TEST_DIR, testData)).resolves.not.toThrow();
 
       const exists = await saveFileExists(TEST_DIR);
       expect(exists).toBe(true);
@@ -307,122 +276,12 @@ describe('Storage Service', () => {
     });
   });
 
-  describe('createBackupFile', () => {
-    it('should create backup file successfully', async () => {
-      const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData.values = { TITLE: 'Test Title' };
-
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
-
-      const backupPath = await createBackupFile(TEST_DIR);
-      expect(backupPath).toBeDefined();
-      expect(backupPath).toContain('.replacement-values.json.bak.');
-
-      // Verify backup exists
-      const exists = await fs.promises.access(backupPath).then(() => true).catch(() => false);
-      expect(exists).toBe(true);
-    });
-
-    it('should throw error when save file does not exist', async () => {
-      await expect(createBackupFile(TEST_DIR)).rejects.toThrow(StorageError);
-    });
-
-    it('should clean up old backups', async () => {
-      const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData.values = { TITLE: 'Test Title' };
-
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
-
-      // Create multiple backups
-      for (let i = 0; i < 10; i++) {
-        await createBackupFile(TEST_DIR);
-      }
-
-      const backupFiles = await getBackupFiles(TEST_DIR);
-      expect(backupFiles.length).toBeLessThanOrEqual(5); // MAX_SAVE_FILE_BACKUPS
-    });
-  });
-
-  describe('cleanupOldBackups', () => {
-    it('should clean up old backups', async () => {
-      const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData.values = { TITLE: 'Test Title' };
-
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
-
-      // Create multiple backups
-      for (let i = 0; i < 10; i++) {
-        await createBackupFile(TEST_DIR);
-      }
-
-      await cleanupOldBackups(TEST_DIR);
-
-      const backupFiles = await getBackupFiles(TEST_DIR);
-      expect(backupFiles.length).toBeLessThanOrEqual(5);
-    });
-
-    it('should handle errors gracefully', async () => {
-      // Should not throw even if directory doesn't exist
-      await expect(cleanupOldBackups('/nonexistent/path')).resolves.not.toThrow();
-    });
-  });
-
-  describe('getBackupFiles', () => {
-    it('should return empty array when no backups exist', async () => {
-      const result = await getBackupFiles(TEST_DIR);
-      expect(result).toEqual([]);
-    });
-
-    it('should return list of backup files', async () => {
-      const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData.values = { TITLE: 'Test Title' };
-
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
-
-      // Create backups
-      await createBackupFile(TEST_DIR);
-      await createBackupFile(TEST_DIR);
-
-      const result = await getBackupFiles(TEST_DIR);
-      expect(result.length).toBeGreaterThan(0);
-      expect(result[0]).toContain('.replacement-values.json.bak.');
-    });
-
-    it('should sort backups by timestamp descending', async () => {
-      const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData.values = { TITLE: 'Test Title' };
-
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
-
-      // Create backups with delays
-      await createBackupFile(TEST_DIR);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      await createBackupFile(TEST_DIR);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      await createBackupFile(TEST_DIR);
-
-      const result = await getBackupFiles(TEST_DIR);
-      expect(result.length).toBeGreaterThanOrEqual(3);
-
-      // Extract timestamps
-      const timestamps = result.map((file) => {
-        const match = file.match(/\.bak\.(\d+)$/);
-        return match ? parseInt(match[1], 10) : 0;
-      });
-
-      // Verify descending order
-      for (let i = 0; i < timestamps.length - 1; i++) {
-        expect(timestamps[i]).toBeGreaterThanOrEqual(timestamps[i + 1]);
-      }
-    });
-  });
-
   describe('deleteSaveFile', () => {
     it('should delete save file successfully', async () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title' };
 
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      await writeSaveFile(TEST_DIR, testData);
 
       const result = await deleteSaveFile(TEST_DIR);
       expect(result).toBe(true);
@@ -449,50 +308,6 @@ describe('Storage Service', () => {
     });
   });
 
-  describe('restoreFromBackup', () => {
-    it('should restore from backup successfully', async () => {
-      const testData1 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData1.values = { TITLE: 'Original' };
-
-      await writeSaveFile(TEST_DIR, testData1, { createBackup: false });
-
-      const backupPath = await createBackupFile(TEST_DIR);
-
-      const testData2 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData2.values = { TITLE: 'Modified' };
-
-      await writeSaveFile(TEST_DIR, testData2, { createBackup: false });
-
-      const result = await restoreFromBackup(TEST_DIR, backupPath);
-      expect(result).toBe(true);
-
-      const readResult = await readSaveFile(TEST_DIR);
-      expect(readResult.success).toBe(true);
-      expect(readResult.data?.values).toEqual({ TITLE: 'Original' });
-    });
-
-    it('should return false when backup does not exist', async () => {
-      const result = await restoreFromBackup(TEST_DIR, '/nonexistent/backup.bak');
-      expect(result).toBe(false);
-    });
-
-    it('should return false for invalid backup file', async () => {
-      const backupPath = path.join(TEST_DIR, 'invalid.bak');
-      await fs.promises.writeFile(backupPath, 'invalid json', 'utf-8');
-
-      const result = await restoreFromBackup(TEST_DIR, backupPath);
-      expect(result).toBe(false);
-    });
-
-    it('should return false for backup with invalid structure', async () => {
-      const backupPath = path.join(TEST_DIR, 'invalid-structure.bak');
-      await fs.promises.writeFile(backupPath, JSON.stringify({ invalid: 'structure' }), 'utf-8');
-
-      const result = await restoreFromBackup(TEST_DIR, backupPath);
-      expect(result).toBe(false);
-    });
-  });
-
   describe('getSaveFileLastModified', () => {
     it('should return null when save file does not exist', async () => {
       const result = await getSaveFileLastModified(TEST_DIR);
@@ -503,7 +318,7 @@ describe('Storage Service', () => {
       const testData = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
       testData.values = { TITLE: 'Test Title' };
 
-      await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      await writeSaveFile(TEST_DIR, testData);
 
       const result = await getSaveFileLastModified(TEST_DIR);
 
@@ -525,7 +340,7 @@ describe('Storage Service', () => {
       testData.values = { TITLE: 'Test Title', DATA: 'Test Data' };
 
       // Write
-      const writeResult = await writeSaveFile(TEST_DIR, testData, { createBackup: false });
+      const writeResult = await writeSaveFile(TEST_DIR, testData);
       expect(writeResult.success).toBe(true);
 
       // Read
@@ -535,9 +350,8 @@ describe('Storage Service', () => {
 
       // Modify and write again
       testData.values.TITLE = 'Updated Title';
-      const writeResult2 = await writeSaveFile(TEST_DIR, testData, { createBackup: true });
+      const writeResult2 = await writeSaveFile(TEST_DIR, testData);
       expect(writeResult2.success).toBe(true);
-      expect(writeResult2.backupPath).toBeDefined();
 
       // Read again
       const readResult2 = await readSaveFile(TEST_DIR);
@@ -546,40 +360,6 @@ describe('Storage Service', () => {
         throw new Error('TITLE should be defined');
       }
       expect(readResult2.data.values.TITLE).toBe('Updated Title');
-    });
-
-    it('should handle backup and restore cycle', async () => {
-      const testData1 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData1.values = { TITLE: 'Original' };
-
-      await writeSaveFile(TEST_DIR, testData1, { createBackup: false });
-
-      // Create backup
-      const backupPath = await createBackupFile(TEST_DIR);
-
-      // Modify
-      const testData2 = createDefaultReplacementValuesFile(DEFAULT_PREFIX);
-      testData2.values = { TITLE: 'Modified' };
-
-      await writeSaveFile(TEST_DIR, testData2, { createBackup: false });
-
-      // Verify modified
-      const readResult1 = await readSaveFile(TEST_DIR);
-      if (!readResult1.data?.values.TITLE) {
-        throw new Error('TITLE should be defined');
-      }
-      expect(readResult1.data.values.TITLE).toBe('Modified');
-
-      // Restore from backup
-      const restoreResult = await restoreFromBackup(TEST_DIR, backupPath);
-      expect(restoreResult).toBe(true);
-
-      // Verify restored
-      const readResult2 = await readSaveFile(TEST_DIR);
-      if (!readResult2.data?.values.TITLE) {
-        throw new Error('TITLE should be defined');
-      }
-      expect(readResult2.data.values.TITLE).toBe('Original');
     });
 
     it('should handle error recovery with default file creation', async () => {
