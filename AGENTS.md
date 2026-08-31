@@ -39,7 +39,7 @@ Provide a short, imperative guide that anyone (human contributors or AI coding a
    )"
    ```
    The description should be 3‑5 lines covering *what*, *why*, *verification* and any *breaking changes*.
-5. **CI runs automatically** on PRs (see `.github/workflows/build.yml`). The workflow builds on Linux, macOS and Windows. The `attach-to‑release` job is gated to `release` events only, so it is skipped for PRs – this is expected.
+5. **CI runs automatically** on PRs and pushes to `main` (see `.github/workflows/ci.yml`): lint, typecheck and tests on Linux. Production builds run ONLY on releases (see `.github/workflows/release.yml`): the 3-OS build matrix attaches artifacts to the release and does not re-run tests.
 6. **Merge via REBASE‑MERGE** – the only approved merge method:
    - Click **Rebase and merge** in the GitHub UI.
    - This keeps the branch’s atomic commits, preserves a linear `main` history and enables reliable `git bisect`.
