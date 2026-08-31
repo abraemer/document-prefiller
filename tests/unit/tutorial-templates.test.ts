@@ -8,6 +8,12 @@
  * - marker detection finds exactly the expected identifier set
  * - each template is a structurally valid OPC package (opens in
  *   Microsoft Word / LibreOffice without repair prompts)
+ *
+ * Also locks the committed example OUTPUTS in docs/tutorial/outputs/
+ * (produced by the real app flow, regenerated via `pnpm generate:visuals`):
+ * - each output parses and contains no remaining markers
+ * - each output contains exactly the expected demo values
+ * - the outputs directory mirrors the template filenames exactly
  */
 
 import { describe, it, expect } from 'vitest';
@@ -71,5 +77,62 @@ describe('Tutorial example templates', () => {
         expect(zip.file(entry), `missing OPC entry: ${entry}`).not.toBeNull();
       }
     });
+  });
+});
+
+const outputsDir = path.resolve(process.cwd(), 'docs/tutorial/outputs');
+
+interface OutputSpec {
+  name: string;
+  expectedValues: string[];
+}
+
+const outputs: OutputSpec[] = [
+  {
+    name: 'letter.docx',
+    expectedValues: [
+      'Jane Smith',
+      'Acme Corp',
+      'September 1, 2026',
+      '42 Example Street, 12345 Springfield',
+    ],
+  },
+  {
+    name: 'invoice.docx',
+    expectedValues: ['INV-2026-042', 'Acme Corp', '$1,250.00', '2026-09-30'],
+  },
+  {
+    name: 'certificate.docx',
+    expectedValues: ['Jane Smith', 'Advanced Document Automation', 'September 1, 2026'],
+  },
+];
+
+describe('Tutorial example outputs', () => {
+  describe.each(outputs)('$name', ({ name, expectedValues }) => {
+    const filePath = path.join(outputsDir, name);
+
+    it('exists and parses successfully with the app .docx parser', async () => {
+      expect(fs.existsSync(filePath)).toBe(true);
+      const text = await parseDocxFile(filePath);
+      expect(text.length).toBeGreaterThan(0);
+    });
+
+    it('contains no remaining markers', async () => {
+      const text = await parseDocxFile(filePath);
+      expect(detectMarkers(text, DEFAULT_PREFIX)).toEqual([]);
+    });
+
+    it('contains the expected demo values', async () => {
+      const text = await parseDocxFile(filePath);
+      for (const value of expectedValues) {
+        expect(text).toContain(value);
+      }
+    });
+  });
+
+  it('outputs directory contains exactly the files mirroring the templates', () => {
+    const actual = fs.readdirSync(outputsDir).sort();
+    const expected = templates.map((t) => t.name).sort();
+    expect(actual).toEqual(expected);
   });
 });
