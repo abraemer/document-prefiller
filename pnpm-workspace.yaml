@@ -1,0 +1,16 @@
+# Single-package project: pnpm 11 reads all project config from this file
+# (the legacy package.json "pnpm" field is no longer read). The `packages`
+# field is omitted, which means only the root package is in the workspace.
+allowBuilds:
+  # macOS-only optional dep of vite that runs a node-gyp build script.
+  # Yarn 1 always ran it on macOS; allowed for behavior parity.
+  # Linux/Windows never install it.
+  fsevents: true
+  # Optional dep of sass@1.103.1 (build chain); its install script only
+  # falls back to node-gyp when no prebuilt platform binary matches.
+  # Yarn 1 ran it; allowed for behavior parity.
+  '@parcel/watcher': true
+  # Dep of electron-builder-squirrel-windows (electron-builder 26.15.3);
+  # generates Windows Squirrel installers. Yarn 1 ran it; allowed for
+  # behavior parity.
+  electron-winstaller: true
