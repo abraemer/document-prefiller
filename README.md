@@ -54,8 +54,9 @@ Example markers:
 ## Development
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js (v24 LTS or higher)
 - Yarn (v1.22.0 or higher)
+- Requires Windows 10+, macOS 13+, or a modern 64-bit Linux
 
 ### Setup
 
@@ -132,7 +133,6 @@ document-prefiller/
 | `yarn build:win` | Build for Windows |
 | `yarn build:mac` | Build for macOS |
 | `yarn build:linux` | Build for Linux |
-| `yarn preview` | Preview built application |
 | `yarn lint` | Run ESLint with auto-fix |
 | `yarn test` | Run tests in watch mode |
 | `yarn test:run` | Run tests once |
