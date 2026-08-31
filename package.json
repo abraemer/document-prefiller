@@ -1,6 +1,6 @@
 {
   "name": "document-prefiller",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A desktop application for prefilling Microsoft Word documents with replacement markers",
   "main": "dist-electron/main/index.js",
   "type": "module",
