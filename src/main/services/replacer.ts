@@ -554,7 +554,7 @@ function replaceSimpleMarkers(
       'g'
     );
     
-    modifiedXml = modifiedXml.replace(regex, (match, openTag, content, closeTag) => {
+    modifiedXml = modifiedXml.replace(regex, (_match, openTag, content, closeTag) => {
       // If replacement is empty, remove the marker entirely
       const replacedContent = replacement === '' 
         ? content.replace(new RegExp(escapeRegex(fullMarker), 'g'), '')

@@ -152,7 +152,7 @@ export function useValidation() {
    * @param identifier - The marker identifier
    * @returns Validation result (always valid)
    */
-  function validateMarkerValue(value: string, identifier: string): ValidationResult {
+  function validateMarkerValue(_value: string, identifier: string): ValidationResult {
     // According to TODO.md Step 6.7: "Marker values have no validation (allow any input)"
     // So we always return valid
     const result: ValidationResult = {

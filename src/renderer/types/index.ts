@@ -130,12 +130,9 @@ export interface ElectronAPI {
 }
 
 /**
- * Extend the Window interface to include the API
+ * The Window interface augmentation (window.api) is declared once in
+ * src/preload/index.ts (typeof-precise); a second augmentation here
+ * conflicted with it (TS2717) under vue-tsc 3.
  */
-declare global {
-  interface Window {
-    api: ElectronAPI;
-  }
-}
 
 export {};
