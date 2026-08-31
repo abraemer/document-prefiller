@@ -392,6 +392,8 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <UpdateNotification />
   </v-app>
 </template>
 
@@ -404,6 +406,7 @@ import { useMarkers } from './composables/useMarkers';
 import { useDocuments } from './composables/useDocuments';
 import { useSettings } from './composables/useSettings';
 import MarkerList from './components/MarkerList.vue';
+import UpdateNotification from './components/UpdateNotification.vue';
 
 // ============================================================================
 // COMPOSABLES
