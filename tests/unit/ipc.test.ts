@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { isSuccess, isError, getDataOrThrow, getDataOrDefault } from '../../src/renderer/utils/ipc';
+import { IPC_CHANNELS } from '../../src/shared/types';
 import type { IpcResponse, IpcSuccessResponse, IpcErrorResponse } from '../../src/shared/types';
 
 // ============================================================================
@@ -528,5 +529,18 @@ describe('IPC - Default Values', () => {
 
     const defaultObject = { name: 'default', value: 0 };
     expect(getDataOrDefault(response, defaultObject)).toEqual(defaultObject);
+  });
+});
+
+// ============================================================================
+// UPDATER CHANNEL TESTS
+// ============================================================================
+
+describe('IPC - Updater Channels', () => {
+  it('should define the updater channel names with the exact channel strings', () => {
+    expect(IPC_CHANNELS.UPDATER_GET_STATE).toBe('updater:get-state');
+    expect(IPC_CHANNELS.UPDATER_INSTALL).toBe('updater:install');
+    expect(IPC_CHANNELS.UPDATER_OPEN_RELEASES).toBe('updater:open-releases');
+    expect(IPC_CHANNELS.UPDATER_STATUS).toBe('updater:status');
   });
 });
