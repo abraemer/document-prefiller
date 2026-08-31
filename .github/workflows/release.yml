@@ -40,7 +40,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn run build:${{ matrix.platform }}
+          yarn run build:${{ matrix.platform }} --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -52,6 +52,8 @@ jobs:
             release/*.dmg
             release/*.zip
             release/*.exe
+            release/latest*.yml
+            release/*.blockmap
           retention-days: 7
 
   attach-to-release:
@@ -75,4 +77,6 @@ jobs:
             ./artifacts/**/*.dmg
             ./artifacts/**/*.zip
             ./artifacts/**/*.exe
+            ./artifacts/**/latest*.yml
+            ./artifacts/**/*.blockmap
           fail_on_unmatched_files: true
