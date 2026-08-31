@@ -29,6 +29,7 @@
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.6.0",
     "jszip": "^3.10.1",
     "sass": "^1.97.3",
     "vue": "^3.4.0",
@@ -64,7 +65,11 @@
   "build": {
     "appId": "com.documentprefiller.app",
     "productName": "Document Prefiller",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "abraemer",
+      "repo": "document-prefiller"
+    },
     "directories": {
       "output": "release",
       "buildResources": "public/icons"
