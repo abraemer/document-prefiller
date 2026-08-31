@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_CHANNELS } from '../shared/types'
 import type {
   DocumentMarker,
   AppSettings,
@@ -14,6 +15,9 @@ import type {
   SaveSettingsRequest,
   SaveSettingsResponse,
   ReplacementValuesFile,
+  UpdaterStateResponse,
+  UpdateStatusEvent,
+  UpdaterActionResponse,
 } from '../shared/types'
 
 /**
@@ -156,6 +160,49 @@ const windowAPI = {
 }
 
 /**
+ * Updater Operations API
+ */
+const updaterAPI = {
+  /**
+   * Get a pure snapshot of the updater state
+   */
+  getUpdateState: (): Promise<UpdaterStateResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_GET_STATE)
+  },
+
+  /**
+   * Install a downloaded update
+   */
+  installUpdate: (): Promise<UpdaterActionResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_INSTALL)
+  },
+
+  /**
+   * Open the GitHub releases page for manual updates
+   */
+  openReleasesPage: (): Promise<UpdaterActionResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_OPEN_RELEASES)
+  },
+
+  /**
+   * Listen for updater status changes
+   */
+  onUpdaterStatus: (callback: (event: UpdateStatusEvent) => void): void => {
+    const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatusEvent) => {
+      callback(status)
+    }
+    ipcRenderer.on(IPC_CHANNELS.UPDATER_STATUS, listener)
+  },
+
+  /**
+   * Remove updater status listener
+   */
+  removeUpdaterStatusListener: (): void => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATER_STATUS)
+  },
+}
+
+/**
  * Event Listener API
  * Allows the renderer to listen for events from the main process
  */
@@ -232,6 +279,7 @@ contextBridge.exposeInMainWorld('api', {
   saveFile: saveFileAPI,
   window: windowAPI,
   events: eventAPI,
+  updater: updaterAPI,
 })
 
 /**
@@ -245,6 +293,7 @@ export type ElectronAPI = {
   saveFile: typeof saveFileAPI
   window: typeof windowAPI
   events: typeof eventAPI
+  updater: typeof updaterAPI
 }
 
 /**

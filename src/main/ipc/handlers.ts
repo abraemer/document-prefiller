@@ -7,6 +7,7 @@ import { registerFolderHandlers } from './folder'
 import { registerDocumentHandlers } from './document'
 import { registerSettingsHandlers } from './settings'
 import { registerWindowHandlers } from './window'
+import { registerUpdaterHandlers } from './updater'
 
 /**
  * Register all IPC handlers
@@ -26,6 +27,9 @@ export function registerIpcHandlers() {
   
   // Register window operation handlers
   registerWindowHandlers()
+  
+  // Register updater operation handlers
+  registerUpdaterHandlers()
   
   console.log('All IPC handlers registered successfully')
 }
