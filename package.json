@@ -74,7 +74,7 @@
       "output": "release",
       "buildResources": "public/icons"
     },
-    "artifactName": "${productName}.${ext}",
+    "artifactName": "${name}-${version}-${arch}.${ext}",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -133,11 +133,15 @@
       "maintainer": "Document Prefiller Team"
     },
     "nsis": {
+      "artifactName": "${name}-setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Document Prefiller"
+    },
+    "portable": {
+      "artifactName": "${name}-portable-${version}-${arch}.${ext}"
     },
     "dmg": {
       "contents": [
