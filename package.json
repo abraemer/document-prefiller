@@ -23,7 +23,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "generate:visuals": "node .opencode/skills/tutorial-visuals/scripts/capture-visuals.mjs"
   },
   "packageManager": "pnpm@11.24.0",
   "dependencies": {
