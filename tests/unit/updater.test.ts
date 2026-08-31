@@ -67,9 +67,10 @@ describe('Updater Service', () => {
     electronMock.app.isPackaged = false
     autoUpdaterMock.autoDownload = undefined
     autoUpdaterMock.autoInstallOnAppQuit = undefined
-    // checkForUpdates has no baseline implementation; reset so a rejection
-    // set by an earlier case cannot leak into this one
+    // checkForUpdates and openExternal have no baseline implementation;
+    // reset so a rejection set by an earlier case cannot leak into this one
     autoUpdaterMock.checkForUpdates.mockReset()
+    electronMock.shell.openExternal.mockReset()
   })
 
   afterEach(() => {
@@ -181,10 +182,23 @@ describe('Updater Service', () => {
     const updater = await import('../../src/main/services/updater')
 
     // When: the releases page is opened
-    const result = updater.openReleasesPage()
+    const result = await updater.openReleasesPage()
 
     // Then: the shell is directed at RELEASES_URL
     expect(result).toEqual({ success: true })
+    expect(electronMock.shell.openExternal).toHaveBeenCalledWith(RELEASES_URL)
+  })
+
+  it('degrades a failing openExternal call to a failed action response', async () => {
+    // Given: the shell rejects the openExternal call
+    electronMock.shell.openExternal.mockRejectedValue(new Error('no shell'))
+    const updater = await import('../../src/main/services/updater')
+
+    // When: the releases page is opened
+    const result = await updater.openReleasesPage()
+
+    // Then: the rejection is converted, never thrown
+    expect(result).toEqual({ success: false, error: 'no shell' })
     expect(electronMock.shell.openExternal).toHaveBeenCalledWith(RELEASES_URL)
   })
 

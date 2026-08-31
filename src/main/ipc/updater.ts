@@ -50,14 +50,15 @@ export function registerUpdaterHandlers(): void {
   /**
    * Handle open-releases-page request
    */
-  ipcMain.handle(IPC_CHANNELS.UPDATER_OPEN_RELEASES, (): UpdaterActionResponse => {
+  ipcMain.handle(IPC_CHANNELS.UPDATER_OPEN_RELEASES, (): Promise<UpdaterActionResponse> => {
     try {
       return openReleasesPage();
     } catch (error) {
-      return {
+      // Sync throws only; convert to the async response shape
+      return Promise.resolve({
         success: false,
         error: error instanceof Error ? error.message : String(error),
-      };
+      });
     }
   });
 }
