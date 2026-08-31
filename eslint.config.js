@@ -101,7 +101,6 @@ export default [
 
       // Lock files
       'package-lock.json',
-      'yarn.lock',
       'pnpm-lock.yaml',
     ],
   },

@@ -5,9 +5,9 @@ description: Cut and verify a release of Document Prefiller (Electron app with e
 
 # Cut a release
 
-Releases are built by `.github/workflows/release.yml` (triggers on `release: created`): a 3-OS build matrix runs `yarn run build:<platform> --publish never` and softprops attaches the installers plus the auto-update metadata (`latest*.yml` + `*.blockmap`). electron-updater clients always fetch the NEWEST release's metadata, so each release must be complete and self-consistent before users reach it.
+Releases are built by `.github/workflows/release.yml` (triggers on `release: created`): a 3-OS build matrix runs `pnpm run build:<platform> --publish never` and softprops attaches the installers plus the auto-update metadata (`latest*.yml` + `*.blockmap`). electron-updater clients always fetch the NEWEST release's metadata, so each release must be complete and self-consistent before users reach it.
 
-Every command block starts with the Node preamble (yarn is not on PATH):
+Every command block starts with the Node preamble (Node 24 is not on PATH without the nvm preamble):
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use 24 --silent && sleep 1
