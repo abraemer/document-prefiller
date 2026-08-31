@@ -23,11 +23,11 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
-import { replaceMarkers } from '../../src/main/services/replacer';
+import { processDocumentsBatch } from '../../src/main/services/replacer';
 import type { ReplacementRequest } from '../../src/shared/types/data-models';
 
 // Mirror replacer.test.ts: mock copyDocxFiles with an actual-copy
-// implementation so replaceMarkers runs against real files in temp dirs.
+// implementation so processDocumentsBatch runs against real files in temp dirs.
 vi.mock('../../src/main/utils/file', () => ({
   copyDocxFiles: vi.fn(async (sourceDir: string, outputDir: string) => {
     const fs = await import('fs/promises');
@@ -116,7 +116,7 @@ describe('Template-shaped fixture e2e (unified marker engine)', () => {
     await fs.rm(outputDir, { recursive: true, force: true });
   });
 
-  describe('full template paragraph through replaceMarkers', () => {
+  describe('full template paragraph through processDocumentsBatch', () => {
     it('replaces all three markers, keeping bold DIAGNOSE3 formatting, non-bold siblings, separators and tail byte-identical', async () => {
       const docxPath = path.join(sourceDir, 'abrechnungsbogen-fixture.docx');
       await buildTestDocx(docxPath, TEMPLATE_DOCUMENT_XML);
@@ -132,7 +132,7 @@ describe('Template-shaped fixture e2e (unified marker engine)', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
@@ -189,7 +189,7 @@ describe('Template-shaped fixture e2e (unified marker engine)', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
@@ -227,7 +227,7 @@ describe('Template-shaped fixture e2e (unified marker engine)', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
