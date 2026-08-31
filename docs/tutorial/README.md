@@ -34,9 +34,15 @@ See the root README’s short marker summary for a quick recap.
 
 ## Step-by-step walkthrough
 
-1. **Launch the app** – see screenshot `assets/01-initial.png`.
-2. **Click *Change* and pick the folder** `docs/tutorial/templates`. The app scans the three templates and lists all eight unique markers and the three documents (see `assets/02-markers-detected.png`).
-3. **Enter values** for each marker. Use the table below; the UI only shows the first five rows at a time, so scroll to see the rest (visible in `assets/03-values-entered.png`).
+1. **Launch the app** –
+
+![The app right after launching - no folder selected yet](assets/01-initial.png)
+2. **Click *Change* and pick the folder** `docs/tutorial/templates`. The app scans the three templates and lists all eight unique markers and the three documents.
+
+![The app after selecting the templates folder - all 8 markers and the 3 documents detected](assets/02-markers-detected.png)
+3. **Enter values** for each marker. Use the table below; the UI only shows the first five rows at a time, so scroll to see the rest.
+
+![All marker values entered](assets/03-values-entered.png)
 
 | Marker | Value |
 |--------|-------|
@@ -49,7 +55,9 @@ See the root README’s short marker summary for a quick recap.
 | `DUE_DATE` | 2026-09-30 |
 | `COURSE_NAME` | Advanced Document Automation |
 
-4. **Click *Replace…***, choose an output folder (e.g., `outputs/`). The app writes filled copies of each template and shows a success toast (see `assets/04-replace-success.png`).
+4. **Click *Replace…***, choose an output folder (e.g., `outputs/`). The app writes filled copies of each template and shows a success toast.
+
+![Green success message after clicking Replace](assets/04-replace-success.png)
 
 ## Inspect the outputs
 
@@ -86,4 +94,4 @@ This script requires `ffmpeg` and a graphical session on Linux. To regenerate on
 node .opencode/skills/tutorial-visuals/scripts/generate-templates.mjs
 ```
 
-Full details are in the skill file `.opencode/skills/tutorial-visuals/SKILL.md`. A successful run also refreshes the `outputs/` folder and produces `docs/tutorial/assets/demo.gif` (the animation shown on the website), although the GIF is not embedded in this README.
+Full details are in the skill file `.opencode/skills/tutorial-visuals/SKILL.md`. A successful run also refreshes the `outputs/` folder and produces `docs/tutorial/assets/demo.gif` (the demo animation shown in the root README), although the GIF is not embedded in this README.
