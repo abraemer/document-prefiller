@@ -18,7 +18,7 @@ Every command block starts with the Node pre‑amble required by the repo:
 source ~/.nvm/nvm.sh && nvm use 24 --silent && sleep 1
 ```
 
-* `ffmpeg` must be on `PATH` for GIF assembly. If it is missing the script still produces PNGs and fails loudly on the GIF step.
+* `ffmpeg` must be on `PATH` for GIF assembly. If it is missing, the full run aborts at preflight; use `--skip-gif` for a PNG-only capture.
 * On Linux a graphical session is needed – `DISPLAY` or `WAYLAND_DISPLAY` must be set.
 * Run from the repository root.
 
