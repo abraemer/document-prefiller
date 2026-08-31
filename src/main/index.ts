@@ -13,7 +13,7 @@ function createWindow() {
   mainWindow = createMainWindow(preloadPath)
 
   // In development, load from the dev server
-  // electron-vite sets VITE_DEV_SERVER_URL automatically
+  // vite-plugin-electron sets VITE_DEV_SERVER_URL automatically
   const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
   
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
@@ -21,7 +21,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   } else {
     // In production, load from the built files
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
   }
 
   // Show window when ready to prevent flicker
