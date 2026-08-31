@@ -29,7 +29,7 @@ The Document Prefiller is a desktop GUI application designed to streamline the p
 - **Vite**: Fast build tool and development server
 - **ESLint**: Code linting and style enforcement
 - **Vitest**: Unit testing framework
-- **Yarn**: Package manager for dependency management
+- **pnpm**: Package manager for dependency management
 
 ### 2.3 Additional Libraries (to be determined)
 - **docx** or similar: For parsing and modifying .docx files
