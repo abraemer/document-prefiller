@@ -11,6 +11,8 @@ allowBuilds:
   # The pre-migration package manager ran it; allowed for behavior parity.
   '@parcel/watcher': true
   # Dep of electron-builder-squirrel-windows (electron-builder 26.15.3);
-  # generates Windows Squirrel installers. The pre-migration package
-  # manager ran it; allowed for behavior parity.
-  electron-winstaller: true
+  # this project never builds Squirrel-Windows targets (win ships NSIS +
+  # portable), so keep it installed but inert: its install script (7-Zip
+  # arch selection) must not run. If a Squirrel target is ever added,
+  # flip this back to true.
+  electron-winstaller: false

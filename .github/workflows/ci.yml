@@ -32,14 +32,13 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        # transient: remove --config.minimum-release-age=0 (install AND run commands) once all lockfile packages are >1 day old (pnpm 11 default minimumReleaseAge=1d)
-        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm --config.minimum-release-age=0 lint:check
+        run: pnpm lint:check
 
       - name: Typecheck
-        run: pnpm --config.minimum-release-age=0 typecheck
+        run: pnpm typecheck
 
       - name: Test
-        run: pnpm --config.minimum-release-age=0 test:run
+        run: pnpm test:run
