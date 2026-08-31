@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
-import { replaceMarkers, processDocuments, processDocumentsBatch, processDocumentsWithProgress, ReplacementError, type BatchProgress } from '../../src/main/services/replacer';
+import { processDocumentsBatch, ReplacementError, type BatchProgress } from '../../src/main/services/replacer';
 import type { ReplacementRequest } from '../../src/shared/types/data-models';
 import { detectMarkers } from '../../src/main/utils/marker-detection';
 import { parseDocxFile } from '../../src/main/utils/docx-parser';
@@ -70,7 +70,7 @@ describe('Replacer Service', () => {
     }
   });
 
-  describe('replaceMarkers', () => {
+  describe('processDocumentsBatch', () => {
     it('should replace simple markers in a single text run', async () => {
       // Create a test .docx file with simple markers
       const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
@@ -97,7 +97,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
@@ -142,7 +142,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
@@ -179,7 +179,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
 
@@ -215,7 +215,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
 
@@ -250,7 +250,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
 
@@ -270,8 +270,8 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await expect(replaceMarkers(request)).rejects.toThrow(ReplacementError);
-      await expect(replaceMarkers(request)).rejects.toThrow('Source folder not accessible');
+      await expect(processDocumentsBatch(request)).rejects.toThrow(ReplacementError);
+      await expect(processDocumentsBatch(request)).rejects.toThrow('Source folder not accessible');
     });
 
     it('should handle empty source folder gracefully', async () => {
@@ -282,7 +282,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(0);
@@ -301,7 +301,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -335,7 +335,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(2);
@@ -360,39 +360,15 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const progressUpdates: Array<{ progress: number; currentItem?: string }> = [];
-      const onProgress = (progress: { operation: 'replace'; progress: number; currentItem?: string }) => {
-        progressUpdates.push({ progress: progress.progress, currentItem: progress.currentItem });
+      const progressUpdates: BatchProgress[] = [];
+      const onProgress = (progress: BatchProgress) => {
+        progressUpdates.push(progress);
       };
 
-      await replaceMarkers(request, onProgress);
+      await processDocumentsBatch(request, onProgress);
 
       expect(progressUpdates.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('processDocuments', () => {
-    it('should be an alias for replaceMarkers', async () => {
-      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p><w:r><w:t>REPLACEME-TEST</w:t></w:r></w:p>
-  </w:body>
-</w:document>`;
-
-      await createTestDocx(path.join(sourceDir, 'test.docx'), xmlContent);
-
-      const request: ReplacementRequest = {
-        sourceFolder: sourceDir,
-        outputFolder: outputDir,
-        values: { TEST: 'Success' },
-        prefix: 'REPLACEME-'
-      };
-
-      const result = await processDocuments(request);
-
-      expect(result.success).toBe(true);
-      expect(result.processed).toBe(1);
+      expect(progressUpdates[progressUpdates.length - 1].phase).toBe('complete');
     });
   });
 
@@ -422,7 +398,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'bold.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -460,7 +436,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'italic.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -498,7 +474,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'underline.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -536,7 +512,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'fontsize.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -574,7 +550,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'color.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -616,7 +592,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'multiple-formatting.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -658,7 +634,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'paragraph.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -707,7 +683,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'structure.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -754,7 +730,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'fragmented-formatting.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -806,7 +782,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'mixed-content.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -847,7 +823,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'fontfamily.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -882,7 +858,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      await replaceMarkers(request);
+      await processDocumentsBatch(request);
 
       const outputPath = path.join(outputDir, 'spacing.docx');
       const modifiedXml = await extractDocumentXml(outputPath);
@@ -1227,59 +1203,6 @@ describe('Replacer Service', () => {
       expect(result.processedDocuments[0]).toContain('doc1.docx');
       expect(result.processedDocuments[1]).toContain('doc2.docx');
       expect(result.failedDocuments).toHaveLength(0);
-    });
-  });
-
-  describe('processDocumentsWithProgress', () => {
-    it('should be an alias for processDocumentsBatch', async () => {
-      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
-  </w:body>
-</w:document>`;
-
-      await createTestDocx(path.join(sourceDir, 'test.docx'), xmlContent);
-
-      const request: ReplacementRequest = {
-        sourceFolder: sourceDir,
-        outputFolder: outputDir,
-        values: { NAME: 'Progress Test' },
-        prefix: 'REPLACEME-'
-      };
-
-      const result = await processDocumentsWithProgress(request);
-
-      expect(result.success).toBe(true);
-      expect(result.processed).toBe(1);
-    });
-
-    it('should support progress callback', async () => {
-      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p><w:r><w:t>Test: REPLACEME-NAME</w:t></w:r></w:p>
-  </w:body>
-</w:document>`;
-
-      await createTestDocx(path.join(sourceDir, 'test.docx'), xmlContent);
-
-      const request: ReplacementRequest = {
-        sourceFolder: sourceDir,
-        outputFolder: outputDir,
-        values: { NAME: 'Progress Test' },
-        prefix: 'REPLACEME-'
-      };
-
-      const progressUpdates: BatchProgress[] = [];
-      const onProgress = (progress: BatchProgress) => {
-        progressUpdates.push(progress);
-      };
-
-      await processDocumentsWithProgress(request, onProgress);
-
-      expect(progressUpdates.length).toBeGreaterThan(0);
-      expect(progressUpdates[progressUpdates.length - 1].phase).toBe('complete');
     });
   });
 
@@ -1642,7 +1565,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1668,7 +1591,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1687,7 +1610,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1706,7 +1629,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1731,7 +1654,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       // The replacement should still work even with malformed XML
       // as long as the basic structure is present
@@ -1754,7 +1677,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1777,7 +1700,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1795,7 +1718,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1818,7 +1741,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.errors).toBe(1);
@@ -1843,7 +1766,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       // Should handle malformed markers gracefully
       expect(result.success).toBe(true);
@@ -1867,7 +1790,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
     });
@@ -1894,7 +1817,7 @@ describe('Replacer Service', () => {
       };
 
       try {
-        const result = await replaceMarkers(request);
+        const result = await processDocumentsBatch(request);
         
         // Restore permissions for cleanup
         await fs.chmod(outputDir, 0o755);
@@ -1933,7 +1856,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(false);
       expect(result.processed).toBe(1);
@@ -1952,7 +1875,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.failedDocuments[0].path).toContain('clear-error.docx');
       expect(result.failedDocuments[0].error).toBeTruthy();
@@ -1970,7 +1893,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.errors).toBe(1);
       expect(result.failedDocuments[0].error).toBeTruthy();
@@ -2008,7 +1931,7 @@ describe('Replacer Service', () => {
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
@@ -2051,7 +1974,7 @@ describe('Replacer Service', () => {
     interface ParityShape {
       fileName: string;
       documentXml: string;
-      /** in-values subset handed to replaceMarkers */
+      /** in-values subset handed to processDocumentsBatch */
       values: Record<string, string>;
       /** in-values, non-skipped markers detection must see get consumed */
       consumed: Array<{ identifier: string; value: string }>;
@@ -2226,7 +2149,7 @@ ${body}
           values: shape.values,
           prefix: 'REPLACEME-'
         };
-        const result = await replaceMarkers(request);
+        const result = await processDocumentsBatch(request);
         expect(result.success).toBe(true);
         expect(result.processed).toBe(1);
         expect(result.errors).toBe(0);
@@ -2294,7 +2217,7 @@ ${body}
         prefix: 'REPLACEME-'
       };
 
-      const result = await replaceMarkers(request);
+      const result = await processDocumentsBatch(request);
 
       expect(result.success).toBe(true);
       expect(result.processed).toBe(1);
