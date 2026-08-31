@@ -137,9 +137,9 @@ export function installUpdate(): UpdaterActionResponse {
 /**
  * Open the GitHub releases page for manual updates (macOS flow).
  */
-export function openReleasesPage(): UpdaterActionResponse {
+export async function openReleasesPage(): Promise<UpdaterActionResponse> {
   try {
-    void shell.openExternal(RELEASES_URL);
+    await shell.openExternal(RELEASES_URL);
     return { success: true };
   } catch (error) {
     return {

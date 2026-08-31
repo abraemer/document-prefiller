@@ -41,12 +41,12 @@ app.whenReady().then(() => {
   
   createWindow()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-  createWindow()
-
   // Check for updates once at startup (no-op in dev/portable builds)
   void startupCheck()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
     }
   })
 })
