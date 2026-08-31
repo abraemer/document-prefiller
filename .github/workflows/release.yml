@@ -27,20 +27,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'yarn'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        # transient: remove --config.minimum-release-age=0 (install AND run commands) once all lockfile packages are >1 day old (pnpm 11 default minimumReleaseAge=1d)
+        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
 
       - name: Build and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn run build:${{ matrix.platform }} --publish never
+          pnpm --config.minimum-release-age=0 run build:${{ matrix.platform }} --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

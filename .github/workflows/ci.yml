@@ -22,20 +22,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'yarn'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        # transient: remove --config.minimum-release-age=0 (install AND run commands) once all lockfile packages are >1 day old (pnpm 11 default minimumReleaseAge=1d)
+        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
 
       - name: Lint
-        run: yarn lint:check
+        run: pnpm --config.minimum-release-age=0 lint:check
 
       - name: Typecheck
-        run: yarn typecheck
+        run: pnpm --config.minimum-release-age=0 typecheck
 
       - name: Test
-        run: yarn test:run
+        run: pnpm --config.minimum-release-age=0 test:run
