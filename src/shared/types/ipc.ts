@@ -26,9 +26,15 @@ export const IPC_CHANNELS = {
   MAXIMIZE_WINDOW: 'window:maximize',
   CLOSE_WINDOW: 'window:close',
 
+  // Updater operations
+  UPDATER_GET_STATE: 'updater:get-state',
+  UPDATER_INSTALL: 'updater:install',
+  UPDATER_OPEN_RELEASES: 'updater:open-releases',
+
   // Event channels (main -> renderer)
   PROGRESS_EVENT: 'progress:event',
   SETTINGS_CHANGED: 'settings:changed',
+  UPDATER_STATUS: 'updater:status',
 } as const;
 
 /**
@@ -285,6 +291,69 @@ export interface MaximizeWindowRequest {
 export interface CloseWindowRequest {
   /** Window ID (optional, defaults to main window) */
   windowId?: number;
+}
+
+// ============================================================================
+// UPDATER OPERATIONS
+// ============================================================================
+
+/**
+ * Updater status state machine
+ * Lifecycle states reported by the auto-update machinery
+ */
+export type UpdaterStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
+
+/**
+ * Suggested action the renderer should surface to the user
+ */
+export type UpdaterSuggestedAction = 'restart' | 'open-page';
+
+/**
+ * Update Status Event
+ * Emitted on UPDATER_STATUS whenever the updater state changes
+ */
+export interface UpdateStatusEvent {
+  /** Current updater status */
+  status: UpdaterStatus;
+  /** Version of the available update, when known */
+  version?: string;
+  /** Download progress (0-100), only during 'downloading' */
+  progress?: number;
+  /** Error message, only when status is 'error' */
+  error?: string;
+  /** Suggested action for the user, when an action is required */
+  suggestedAction?: UpdaterSuggestedAction;
+}
+
+/**
+ * Updater State Response
+ * Response to UPDATER_GET_STATE - pure snapshot without network activity
+ */
+export interface UpdaterStateResponse {
+  /** Whether updates are supported on this platform/distribution */
+  supported: boolean;
+  /** Current updater status snapshot */
+  status: UpdateStatusEvent;
+  /** Version of the currently running application */
+  currentVersion: string;
+}
+
+/**
+ * Updater Action Response
+ * Response to updater actions (install, open releases page)
+ */
+export interface UpdaterActionResponse {
+  /** Whether the action was dispatched successfully */
+  success: boolean;
+  /** Error message if the action failed */
+  error?: string;
 }
 
 // ============================================================================

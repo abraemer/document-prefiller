@@ -338,6 +338,15 @@ export const SHORTCUT_NEXT_INPUT = 'Tab';
 export const SHORTCUT_PREVIOUS_INPUT = 'Shift+Tab';
 
 // ============================================================================
+// UPDATER CONSTANTS
+// ============================================================================
+
+/**
+ * URL of the GitHub releases page for manual update downloads
+ */
+export const RELEASES_URL = 'https://github.com/abraemer/document-prefiller/releases/latest';
+
+// ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 

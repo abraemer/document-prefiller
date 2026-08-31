@@ -64,6 +64,11 @@ export type {
   SettingsChangedEvent,
   ProgressEvent,
   ErrorEvent,
+  UpdaterStatus,
+  UpdaterSuggestedAction,
+  UpdateStatusEvent,
+  UpdaterStateResponse,
+  UpdaterActionResponse,
 } from './ipc';
 
 // Re-export IPC error codes enum
@@ -105,6 +110,9 @@ import type {
   SaveSettingsResponse,
   ProgressEvent,
   SettingsChangedEvent,
+  UpdaterStateResponse,
+  UpdaterActionResponse,
+  UpdateStatusEvent,
 } from './ipc';
 
 /**
@@ -226,6 +234,12 @@ export type IpcResponseForChannel<T extends IpcChannel> = T extends typeof IPC_C
   ? GetSettingsResponse
   : T extends typeof IPC_CHANNELS.SAVE_SETTINGS
   ? SaveSettingsResponse
+  : T extends typeof IPC_CHANNELS.UPDATER_GET_STATE
+  ? UpdaterStateResponse
+  : T extends typeof IPC_CHANNELS.UPDATER_INSTALL
+  ? UpdaterActionResponse
+  : T extends typeof IPC_CHANNELS.UPDATER_OPEN_RELEASES
+  ? UpdaterActionResponse
   : never;
 
 /**
@@ -235,6 +249,8 @@ export type IpcEventForChannel<T extends IpcChannel> = T extends typeof IPC_CHAN
   ? ProgressEvent
   : T extends typeof IPC_CHANNELS.SETTINGS_CHANGED
   ? SettingsChangedEvent
+  : T extends typeof IPC_CHANNELS.UPDATER_STATUS
+  ? UpdateStatusEvent
   : never;
 
 /**

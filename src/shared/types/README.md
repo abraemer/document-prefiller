@@ -106,6 +106,12 @@ Types for inter-process communication:
 - `MaximizeWindowRequest`
 - `CloseWindowRequest`
 
+**Updater Operations:**
+- `UpdaterStatus` / `UpdaterSuggestedAction` - status and suggestion union types
+- `UpdateStatusEvent` - status event payload emitted on the `updater:status` channel
+- `UpdaterStateResponse` - snapshot response for the `updater:get-state` channel
+- `UpdaterActionResponse` - response for the `updater:install` and `updater:open-releases` channels
+
 ### Type-Safe IPC
 
 The package provides utility types for type-safe IPC communication:
