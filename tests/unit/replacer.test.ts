@@ -1977,7 +1977,7 @@ describe('Replacer Service', () => {
     });
   });
 
-  describe('cross-run marker regression (RED until the unified engine lands)', () => {
+  describe('cross-run marker regression', () => {
     it('should replace a marker split across two runs with different rPr, merging their formatting', async () => {
       // The real bug shape: REPLACEME-DIAGNOSE3 is split mid-identifier across TWO
       // <w:r> runs with DIFFERENT rPr. Detection (paragraph-level concatenation)
@@ -2047,7 +2047,7 @@ describe('Replacer Service', () => {
     });
   });
 
-  describe('detection/replacement parity corpus (RED until the unified engine lands)', () => {
+  describe('detection/replacement parity corpus', () => {
     interface ParityShape {
       fileName: string;
       documentXml: string;
