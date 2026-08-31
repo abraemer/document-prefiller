@@ -176,7 +176,7 @@ When adding new types:
 2. Export it from `index.ts` if it should be publicly accessible
 3. Add a type guard if runtime validation is needed
 4. Update this README with documentation
-5. Run `yarn lint` to ensure no TypeScript errors
+5. Run `pnpm lint` to ensure no TypeScript errors
 
 ## Related Files
 

@@ -67,7 +67,7 @@ Example markers:
 
 ### Prerequisites
 - Node.js (v24 LTS or higher)
-- Yarn (v1.22.0 or higher)
+- pnpm (≥ 10.26 required; the repo pins 11.24.0 via the `packageManager` field and pnpm auto-switches to it). Install: `curl -fsSL https://get.pnpm.io/install.sh | sh -` (macOS/Linux) or `npm i -g pnpm` (Windows/any)
 - Requires Windows 10+, macOS 13+, or a modern 64-bit Linux
 
 ### Setup
@@ -80,12 +80,12 @@ cd document-prefiller
 
 2. Install dependencies:
 ```bash
-yarn install
+pnpm install
 ```
 
 3. Start the development server:
 ```bash
-yarn dev
+pnpm dev
 ```
 
 ### Building
@@ -93,20 +93,20 @@ yarn dev
 Build the application for your current platform:
 
 ```bash
-yarn build
+pnpm build
 ```
 
 Build for specific platforms:
 
 ```bash
 # Windows
-yarn build:win
+pnpm build:win
 
 # macOS
-yarn build:mac
+pnpm build:mac
 
 # Linux
-yarn build:linux
+pnpm build:linux
 ```
 
 Built artifacts will be placed in the `release/` directory.
@@ -140,18 +140,18 @@ document-prefiller/
 
 | Command | Description |
 |---------|-------------|
-| `yarn dev` | Start development server |
-| `yarn build` | Build for current platform |
-| `yarn build:win` | Build for Windows |
-| `yarn build:mac` | Build for macOS |
-| `yarn build:linux` | Build for Linux |
-| `yarn lint` | Run ESLint with auto-fix |
-| `yarn typecheck` | Run TypeScript type checking (vue-tsc) |
-| `yarn lint:check` | Run ESLint in check mode (no auto-fix, CI mode) |
-| `yarn test` | Run tests in watch mode |
-| `yarn test:run` | Run tests once |
-| `yarn test:ui` | Run tests with UI |
-| `yarn test:coverage` | Run tests with coverage report |
+| `pnpm dev` | Start development server |
+| `pnpm build` | Build for current platform |
+| `pnpm build:win` | Build for Windows |
+| `pnpm build:mac` | Build for macOS |
+| `pnpm build:linux` | Build for Linux |
+| `pnpm lint` | Run ESLint with auto-fix |
+| `pnpm typecheck` | Run TypeScript type checking (vue-tsc) |
+| `pnpm lint:check` | Run ESLint in check mode (no auto-fix, CI mode) |
+| `pnpm test` | Run tests in watch mode |
+| `pnpm test:run` | Run tests once |
+| `pnpm test:ui` | Run tests with UI |
+| `pnpm test:coverage` | Run tests with coverage report |
 
 ### Testing
 
@@ -159,16 +159,16 @@ Run the test suite:
 
 ```bash
 # Watch mode
-yarn test
+pnpm test
 
 # Single run
-yarn test:run
+pnpm test:run
 
 # With coverage
-yarn test:coverage
+pnpm test:coverage
 
 # With UI
-yarn test:ui
+pnpm test:ui
 ```
 
 ### Technology Stack
@@ -188,8 +188,8 @@ Contributions are welcome! Please follow these guidelines:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests (`yarn test:run`)
-5. Run linter (`yarn lint`)
+4. Run tests (`pnpm test:run`)
+5. Run linter (`pnpm lint`)
 6. Commit your changes (`git commit -m 'Add amazing feature'`)
 7. Push to the branch (`git push origin feature/amazing-feature`)
 8. Open a Pull Request

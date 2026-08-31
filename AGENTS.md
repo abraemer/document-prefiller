@@ -20,14 +20,14 @@ Provide a short, imperative guide that anyone (human contributors or AI coding a
    ```bash
    source ~/.nvm/nvm.sh && nvm use 24 --silent && sleep 1
    ```
-   Then run the toolchain (Node 24 LTS, corepack‑provided Yarn):
-   - `corepack yarn test:run` – 100 % test pass required.
-   - `corepack yarn typecheck` – TypeScript must compile without errors.
-   - `npx eslint .` – Lint must exit clean (no `--fix`).
-   - `corepack yarn build` – Build must complete for all platforms.
+   Then run the toolchain (Node 24 LTS, pnpm pinned to 11.24.0 via `packageManager`):
+   - `pnpm test:run` – 100 % test pass required.
+   - `pnpm typecheck` – TypeScript must compile without errors.
+   - `pnpm exec eslint .` – Lint must exit clean (no `--fix`).
+   - `pnpm build` – Build must complete for all platforms.
 4. **Push the branch** and **open a PR** against `main`:
    ```bash
-   corepack yarn push -u origin $(git rev-parse --abbrev-ref HEAD)
+   git push -u origin $(git rev-parse --abbrev-ref HEAD)
    gh pr create --base main \
      --title "${COMMIT_SUBJECT}" \
      --body "$(cat <<'MSG'
@@ -54,7 +54,7 @@ Provide a short, imperative guide that anyone (human contributors or AI coding a
 - **Guardrail‑sensitive edits** – if a PR touches only type‑check annotations or non‑functional code, note that in the description so reviewers see the intent.
 - **Never force‑push a shared review branch**; rebase locally first if `main` moved.
 - The `.omo/` directory is ignored; never commit plan or evidence files.
-- All command blocks must start with the NVM line above; forgetting it leaves the PATH pointing at the previous Node version and causes `corepack` to fail.
+- All command blocks must start with the NVM line above; forgetting it leaves the PATH pointing at the previous Node version, which breaks the toolchain.
 
 ---
 *This workflow was validated end‑to‑end on PR #1 (12‑commit `chore/dependency‑updates` branch) – CI matrix green, rebase‑merged, branches cleaned up.*
