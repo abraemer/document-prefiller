@@ -121,7 +121,7 @@ export function registerSettingsHandlers() {
    * Handle saving settings
    * Saves the application settings
    */
-  ipcMain.handle('settings:save', async (event, request: SaveSettingsRequest): Promise<SaveSettingsResponse> => {
+  ipcMain.handle('settings:save', async (_event, request: SaveSettingsRequest): Promise<SaveSettingsResponse> => {
     try {
       const { settings } = request;
 
@@ -171,7 +171,7 @@ export function registerSettingsHandlers() {
    * Handle reading save file
    * Reads the .replacement-values.json file from a folder
    */
-  ipcMain.handle('savefile:read', async (event, folderPath: string): Promise<{ success: boolean; data?: ReplacementValuesFile; error?: string }> => {
+  ipcMain.handle('savefile:read', async (_event, folderPath: string): Promise<{ success: boolean; data?: ReplacementValuesFile; error?: string }> => {
     try {
       if (!folderPath || typeof folderPath !== 'string') {
         return {
@@ -202,7 +202,7 @@ export function registerSettingsHandlers() {
    * Handle writing save file
    * Writes the .replacement-values.json file to a folder
    */
-  ipcMain.handle('savefile:write', async (event, folderPath: string, data: ReplacementValuesFile): Promise<{ success: boolean; error?: string }> => {
+  ipcMain.handle('savefile:write', async (_event, folderPath: string, data: ReplacementValuesFile): Promise<{ success: boolean; error?: string }> => {
     try {
       if (!folderPath || typeof folderPath !== 'string') {
         return {
@@ -219,7 +219,6 @@ export function registerSettingsHandlers() {
       }
 
       const result = await writeSaveFile(folderPath, data, {
-        createBackup: true,
         atomic: true,
         updateTimestamp: true,
       });
@@ -241,7 +240,7 @@ export function registerSettingsHandlers() {
    * Handle getting save file last modified time
    * Returns the last modified timestamp of the save file
    */
-  ipcMain.handle('savefile:lastModified', async (event, folderPath: string): Promise<{ success: boolean; lastModified?: string; error?: string }> => {
+  ipcMain.handle('savefile:lastModified', async (_event, folderPath: string): Promise<{ success: boolean; lastModified?: string; error?: string }> => {
     try {
       if (!folderPath || typeof folderPath !== 'string') {
         return {
