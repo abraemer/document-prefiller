@@ -18,6 +18,7 @@
     "build:mac": "vite build && electron-builder --mac",
     "build:linux": "vite build && electron-builder --linux",
     "lint": "eslint . --fix",
+    "lint:check": "eslint .",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",

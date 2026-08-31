@@ -134,6 +134,8 @@ document-prefiller/
 | `yarn build:mac` | Build for macOS |
 | `yarn build:linux` | Build for Linux |
 | `yarn lint` | Run ESLint with auto-fix |
+| `yarn typecheck` | Run TypeScript type checking (vue-tsc) |
+| `yarn lint:check` | Run ESLint in check mode (no auto-fix, CI mode) |
 | `yarn test` | Run tests in watch mode |
 | `yarn test:run` | Run tests once |
 | `yarn test:ui` | Run tests with UI |
