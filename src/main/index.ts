@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerIpcHandlers } from './ipc/handlers'
 import { createMainWindow } from './window'
+import { startupCheck } from './services/updater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -42,7 +43,10 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+  createWindow()
+
+  // Check for updates once at startup (no-op in dev/portable builds)
+  void startupCheck()
     }
   })
 })
