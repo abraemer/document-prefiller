@@ -8,6 +8,8 @@ import * as path from 'path';
 import JSZip from 'jszip';
 import { replaceMarkers, processDocuments, processDocumentsBatch, processDocumentsWithProgress, ReplacementError, type BatchProgress } from '../../src/main/services/replacer';
 import type { ReplacementRequest } from '../../src/shared/types/data-models';
+import { detectMarkers } from '../../src/main/utils/marker-detection';
+import { parseDocxFile } from '../../src/main/utils/docx-parser';
 
 // Mock the file module with actual file copying
 vi.mock('../../src/main/utils/file', () => ({
@@ -1973,6 +1975,292 @@ describe('Replacer Service', () => {
       expect(result.errors).toBe(1);
       expect(result.failedDocuments[0].error).toBeTruthy();
     });
+  });
+
+  describe('cross-run marker regression (RED until the unified engine lands)', () => {
+    it('should replace a marker split across two runs with different rPr, merging their formatting', async () => {
+      // The real bug shape: REPLACEME-DIAGNOSE3 is split mid-identifier across TWO
+      // <w:r> runs with DIFFERENT rPr. Detection (paragraph-level concatenation)
+      // sees this marker; the current per-run replacement implementation cannot,
+      // so the marker survives into the output document.
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p>
+      <w:r w:rsidR="00A1"><w:rPr><w:sz w:val="24"/></w:rPr><w:t>REPLACEM</w:t></w:r>
+      <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="28"/></w:rPr><w:t>E-DIAGNOSE3</w:t></w:r>
+      <w:r><w:t> and </w:t></w:r>
+      <w:r><w:t>Control: REPLACEME-NAME here</w:t></w:r>
+    </w:p>
+  </w:body>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'cross-run.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: {
+          DIAGNOSE3: 'Merged Run Value',
+          NAME: 'Ada Lovelace'
+        },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(true);
+      expect(result.processed).toBe(1);
+      expect(result.errors).toBe(0);
+      expect(result.processedDocuments).toHaveLength(1);
+
+      const outputPath = path.join(outputDir, 'cross-run.docx');
+      const modifiedXml = await extractDocumentXml(outputPath);
+
+      // (a) the value text must appear in the output document.xml.
+      // RED today: the cross-run marker is not replaced, so the value never appears.
+      expect(modifiedXml).toContain('Merged Run Value');
+
+      // (b) no fragment of the cross-run marker may remain
+      expect(modifiedXml).not.toContain('REPLACEM');
+      expect(modifiedXml).not.toContain('E-DIAGNOSE3');
+
+      // (c) the run CONTAINING the value must carry the merged formatting of both
+      // fragment runs (any-fragment bold wins; largest explicit font size wins).
+      // Prove it on the value's own run, not a character window: the retained
+      // fragment runs keep their rPr after being emptied, so a window could pass
+      // without the new run carrying the merge.
+      const valueRunMatch = modifiedXml.match(/<w:r\b[^>]*>(?:(?!<\/w:r>)[\s\S])*?Merged Run Value[\s\S]*?<\/w:r>/);
+      expect(valueRunMatch).not.toBeNull();
+      const valueRun = valueRunMatch ? valueRunMatch[0] : '';
+      expect(valueRun).toContain('Merged Run Value');
+      const rPrMatch = valueRun.match(/<w:rPr[^>]*>([\s\S]*?)<\/w:rPr>/);
+      expect(rPrMatch).not.toBeNull();
+      expect(rPrMatch ? rPrMatch[1] : '').toContain('<w:b/>');
+      expect(rPrMatch ? rPrMatch[1] : '').toContain('<w:sz w:val="28"/>');
+
+      // (e) the control single-run marker is replaced in place and the XML around
+      // the cross-run marker stays byte-identical
+      expect(modifiedXml).toContain('<w:r><w:t>Control: Ada Lovelace here</w:t></w:r>');
+      expect(modifiedXml).toContain('<w:r><w:t> and </w:t></w:r>');
+    });
+  });
+
+  describe('detection/replacement parity corpus (RED until the unified engine lands)', () => {
+    interface ParityShape {
+      fileName: string;
+      documentXml: string;
+      /** in-values subset handed to replaceMarkers */
+      values: Record<string, string>;
+      /** in-values, non-skipped markers detection must see get consumed */
+      consumed: Array<{ identifier: string; value: string }>;
+      /** out-of-values or skipped (nested/unsafe) markers stay untouched */
+      untouched: Array<{ identifier: string; snippet: string }>;
+    }
+
+    const wrapBody = (body: string): string => `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+${body}
+  </w:body>
+</w:document>`;
+
+    // Out-of-values marker paragraph shared by every shape: it must survive every
+    // replacement byte-identical and remain detectable.
+    const untouchedParagraph =
+      '<w:p><w:r><w:t>Keep REPLACEME-UNTOUCHED intact</w:t></w:r></w:p>';
+
+    const untouchedMarker = { identifier: 'UNTOUCHED', snippet: untouchedParagraph };
+
+    // NOTE on shape 8 (textbox-nested): this is the deliberately-carved-out skip
+    // case. The unified engine must SKIP markers inside nested structures
+    // (drawings/textboxes), leaving them byte-identical and detectable, even when
+    // they appear in values. REPLACEME-SKIP is kept OUT of the values map so that
+    // these skip assertions (byte-identical + still detectable) hold both before
+    // and after the engine lands; the cross-run shapes carry the red.
+    const shapes: ParityShape[] = [
+      {
+        // Shape 1: cross-run with different rPr per fragment (the shipped bug)
+        fileName: 'parity-1-cross-run.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r w:rsidR="00A1"><w:rPr><w:sz w:val="24"/></w:rPr><w:t>REPLACEM</w:t></w:r>
+      <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="28"/></w:rPr><w:t>E-DIAGNOSE3</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { DIAGNOSE3: 'Diagnose Three Value' },
+        consumed: [{ identifier: 'DIAGNOSE3', value: 'Diagnose Three Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 2: THREE-RUN cross-run with a fully-covered middle fragment
+        // (real-world bug shape; pins the middle-emptied rule)
+        fileName: 'parity-2-three-run.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r><w:t>REPLACEM</w:t></w:r>
+      <w:r><w:t>E</w:t></w:r>
+      <w:r><w:t>-DIAGNOSE3</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { DIAGNOSE3: 'Three Run Value' },
+        consumed: [{ identifier: 'DIAGNOSE3', value: 'Three Run Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 3: in-run multi-<w:t> (one <w:r> carrying two <w:t> elements)
+        fileName: 'parity-3-in-run-multi-t.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r><w:t>REPLACE</w:t><w:t>ME-NAME</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { NAME: 'In Run Value' },
+        consumed: [{ identifier: 'NAME', value: 'In Run Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 4: plain single-<w:t> marker
+        fileName: 'parity-4-single-t.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r><w:t>Only REPLACEME-SIMPLE here</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { SIMPLE: 'Single Run Value' },
+        consumed: [{ identifier: 'SIMPLE', value: 'Single Run Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 5: tab-interrupted — the <w:tab/> element contributes NO character
+        // to the paragraph text concatenation, so the runs together still spell
+        // REPLACEME-DIAGNOSE3
+        fileName: 'parity-5-tab-interrupted.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r><w:t>REPLACEME-DIAG</w:t></w:r>
+      <w:r><w:tab/><w:t>NOSE3</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { DIAGNOSE3: 'Tab Interrupted Value' },
+        consumed: [{ identifier: 'DIAGNOSE3', value: 'Tab Interrupted Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 6: entity-adjacent (escaped '&' run text right before the marker)
+        fileName: 'parity-6-entity-adjacent.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r><w:t>R&amp;D REPLACEME-NAME</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { NAME: 'Entity Adjacent Value' },
+        consumed: [{ identifier: 'NAME', value: 'Entity Adjacent Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 7: cross-run marker inside a table cell
+        // (w:tbl > w:tr > w:tc > w:p)
+        fileName: 'parity-7-table-cell.docx',
+        documentXml: wrapBody(`    <w:tbl>
+      <w:tr>
+        <w:tc>
+          <w:p>
+            <w:r><w:t>REPLACEM</w:t></w:r>
+            <w:r><w:t>E-CELL</w:t></w:r>
+          </w:p>
+        </w:tc>
+      </w:tr>
+    </w:tbl>
+    ${untouchedParagraph}`),
+        values: { CELL: 'Table Cell Value' },
+        consumed: [{ identifier: 'CELL', value: 'Table Cell Value' }],
+        untouched: [untouchedMarker]
+      },
+      {
+        // Shape 8: textbox-nested marker — the deliberately-carved-out SKIP case
+        // (see the NOTE above the shapes table)
+        fileName: 'parity-8-textbox-nested.docx',
+        documentXml: wrapBody(`    <w:p>
+      <w:r>
+        <w:drawing>
+          <w:txbxContent>
+            <w:p><w:r><w:t>Box REPLACEME-SKIP note</w:t></w:r></w:p>
+          </w:txbxContent>
+        </w:drawing>
+      </w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: {},
+        consumed: [],
+        untouched: [
+          untouchedMarker,
+          {
+            identifier: 'SKIP',
+            snippet: '<w:p><w:r><w:t>Box REPLACEME-SKIP note</w:t></w:r></w:p>'
+          }
+        ]
+      },
+      {
+        // Shape 9: self-closed empty <w:p/> immediately before the marker paragraph
+        fileName: 'parity-9-p-self-closed.docx',
+        documentXml: wrapBody(`    <w:p/>
+    <w:p>
+      <w:r><w:t>After empty REPLACEME-ADJACENT marker</w:t></w:r>
+    </w:p>
+    ${untouchedParagraph}`),
+        values: { ADJACENT: 'Adjacent Value' },
+        consumed: [{ identifier: 'ADJACENT', value: 'Adjacent Value' }],
+        untouched: [untouchedMarker]
+      }
+    ];
+
+    for (const shape of shapes) {
+      it(`parity: ${shape.fileName} — in-values markers consumed, out-of-values/skipped markers byte-identical and still detectable`, async () => {
+        const docxPath = path.join(sourceDir, shape.fileName);
+        await createTestDocx(docxPath, shape.documentXml);
+
+        // Detection side (the public scanner path the UI uses)
+        const inputText = await parseDocxFile(docxPath);
+        const inputDetected = detectMarkers(inputText, 'REPLACEME-');
+
+        // Replacement side (the public service)
+        const request: ReplacementRequest = {
+          sourceFolder: sourceDir,
+          outputFolder: outputDir,
+          values: shape.values,
+          prefix: 'REPLACEME-'
+        };
+        const result = await replaceMarkers(request);
+        expect(result.success).toBe(true);
+        expect(result.processed).toBe(1);
+        expect(result.errors).toBe(0);
+
+        const outputPath = path.join(outputDir, shape.fileName);
+        const outputXml = await extractDocumentXml(outputPath);
+        const outputDetected = detectMarkers(await parseDocxFile(outputPath), 'REPLACEME-');
+
+        // Harness sanity: detection must see every planted marker in the input.
+        // If this fails, the fixture — not the engine — is wrong.
+        for (const marker of [...shape.consumed, ...shape.untouched]) {
+          expect(inputDetected).toContain(marker.identifier);
+        }
+
+        // Parity, consumed side: every in-values NON-SKIPPED marker that
+        // detection sees must be consumed, observed by inference from the output:
+        // the value is present, the marker is gone from the output document.xml,
+        // and it is no longer detectable in the re-extracted output text.
+        for (const marker of shape.consumed) {
+          expect(outputXml).toContain(marker.value);
+          expect(outputXml).not.toContain(`REPLACEME-${marker.identifier}`);
+          expect(outputDetected).not.toContain(marker.identifier);
+        }
+
+        // Parity, untouched side: every out-of-values marker and every skipped
+        // (nested/unsafe) marker stays byte-identical (its containing
+        // run/paragraph substring survives verbatim) and remains detectable.
+        for (const marker of shape.untouched) {
+          expect(shape.documentXml).toContain(marker.snippet);
+          expect(outputXml).toContain(marker.snippet);
+          expect(outputDetected).toContain(marker.identifier);
+        }
+      });
+    }
   });
 });
 
