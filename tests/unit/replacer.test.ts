@@ -2262,6 +2262,57 @@ ${body}
       });
     }
   });
+
+  describe('unified engine behavior changes', () => {
+    it('should skip a marker inside <w:txbxContent> even when a value is provided, leaving it byte-identical and detectable', async () => {
+      // Pinned deliberate behavior change: the unified engine never splices
+      // into drawings/textboxes. A marker nested inside <w:txbxContent> with
+      // a value provided is skipped with a warning, left byte-untouched, and
+      // remains detectable (detection legitimately still sees textbox text).
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p>
+      <w:r>
+        <w:drawing>
+          <w:txbxContent>
+            <w:p><w:r><w:t>Box REPLACEME-NESTED note</w:t></w:r></w:p>
+          </w:txbxContent>
+        </w:drawing>
+      </w:r>
+    </w:p>
+  </w:body>
+</w:document>`;
+
+      const docxPath = path.join(sourceDir, 'nested-skip.docx');
+      await createTestDocx(docxPath, xmlContent);
+
+      const request: ReplacementRequest = {
+        sourceFolder: sourceDir,
+        outputFolder: outputDir,
+        values: { NESTED: 'Must Not Appear' },
+        prefix: 'REPLACEME-'
+      };
+
+      const result = await replaceMarkers(request);
+
+      expect(result.success).toBe(true);
+      expect(result.processed).toBe(1);
+      expect(result.errors).toBe(0);
+
+      const outputPath = path.join(outputDir, 'nested-skip.docx');
+      const outputXml = await extractDocumentXml(outputPath);
+
+      // Not replaced: the document.xml is byte-identical and the value never
+      // appears in the output.
+      expect(outputXml).toBe(xmlContent);
+      expect(outputXml).not.toContain('Must Not Appear');
+
+      // Still detectable through the public detection path the UI uses.
+      const outputText = await parseDocxFile(outputPath);
+      expect(detectMarkers(outputText, 'REPLACEME-')).toContain('NESTED');
+    });
+  });
 });
 
 /**
