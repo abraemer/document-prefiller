@@ -119,13 +119,15 @@ describe('IPC - Convenience Functions', () => {
         code: 'TIMEOUT',
       };
 
+      let threw = false;
       try {
         getDataOrThrow(response);
-        expect.fail('Should have thrown an error');
       } catch (error) {
+        threw = true;
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toBe('Error');
       }
+      expect(threw).toBe(true);
     });
 
     it('should throw error with details from error response', () => {
@@ -136,13 +138,15 @@ describe('IPC - Convenience Functions', () => {
         details,
       };
 
+      let threw = false;
       try {
         getDataOrThrow(response);
-        expect.fail('Should have thrown an error');
       } catch (error) {
+        threw = true;
         expect(error).toBeInstanceOf(Error);
         expect((error as Error & { originalError?: unknown }).originalError).toEqual(details);
       }
+      expect(threw).toBe(true);
     });
   });
 
