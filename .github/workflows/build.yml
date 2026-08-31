@@ -3,6 +3,7 @@ name: Build and Release
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -30,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'yarn'
 
       - name: Install dependencies
@@ -57,7 +58,7 @@ jobs:
   attach-to-release:
     needs: build
     runs-on: ubuntu-latest
-    if: success()
+    if: github.event_name == 'release' && success()
 
     steps:
       - name: Download all artifacts

@@ -6,6 +6,9 @@
   "type": "module",
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "homepage": "https://github.com/abraemer/document-prefiller",
   "private": true,
   "scripts": {
