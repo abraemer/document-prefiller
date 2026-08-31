@@ -4,6 +4,8 @@
 
 A desktop application for prefilling Microsoft Word (.docx) documents with replacement markers. Streamline your document generation workflow by defining markers in your templates and replacing them with custom values through an intuitive interface.
 
+<p align="center"><img src="docs/tutorial/assets/demo.gif" alt="Document Prefiller workflow demo" width="480"></p>
+
 ## Features
 
 - **Simple Document Scanning**: Automatically detects replacement markers in .docx files
@@ -31,6 +33,8 @@ The app checks for updates automatically when it starts (no button, no periodic 
 **Release process**: the first release shipped with this feature must be versioned above 1.0.0 and tagged `vX.Y.Z`; releases must be published (not draft) for the updater to detect them.
 
 ## Usage
+
+New to Document Prefiller? Walk through the **[step-by-step tutorial](docs/tutorial/README.md)** with ready-made example documents.
 
 ### Getting Started
 
@@ -152,6 +156,7 @@ document-prefiller/
 | `pnpm test:run` | Run tests once |
 | `pnpm test:ui` | Run tests with UI |
 | `pnpm test:coverage` | Run tests with coverage report |
+| `pnpm generate:visuals` | Regenerate tutorial screenshots, demo GIF and example outputs (requires ffmpeg) |
 
 ### Testing
 
