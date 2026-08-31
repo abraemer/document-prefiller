@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import JSZip from 'jszip';
+import { parseParagraphs, paragraphText } from './docx-structure';
 
 /**
  * Custom error class for .docx parsing errors
@@ -168,27 +169,16 @@ async function extractTextFromZip(zip: JSZip, filePath?: string): Promise<string
  * @returns Extracted text content
  */
 function extractTextFromXml(xmlContent: string): string {
-  // Extract paragraphs (<w:p> tags) to preserve paragraph boundaries
-  const paragraphMatches = xmlContent.matchAll(/<w:p[^>]*>(.*?)<\/w:p>/gs);
+  // Extract paragraphs via the shared segmentation module. This fixes two
+  // defects of the previous inline regex: `<w:pPr>` was matched as a
+  // paragraph open tag, and a self-closed `<w:p/>` swallowed the next
+  // paragraph's content.
   const paragraphs: string[] = [];
 
-  for (const paragraphMatch of paragraphMatches) {
-    const paragraphXml = paragraphMatch[1];
-    
-    // Extract text from <w:t> tags within this paragraph
-    const textMatches = paragraphXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-    const textParts: string[] = [];
-
-    for (const match of textMatches) {
-      if (match[1]) {
-        textParts.push(match[1]);
-      }
-    }
-
-    // Join text parts within the paragraph
-    const paragraphText = textParts.join('');
-    if (paragraphText.trim()) {
-      paragraphs.push(paragraphText);
+  for (const paragraph of parseParagraphs(xmlContent)) {
+    const text = paragraphText(paragraph);
+    if (text.trim()) {
+      paragraphs.push(text);
     }
   }
 
