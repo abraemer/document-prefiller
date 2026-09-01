@@ -1,6 +1,6 @@
 ## Overview
 
-Document Prefiller is a desktop application that lets you fill Microsoft Word (.docx) templates with custom values by using replacement markers. See the [root README](../README.md) for installation instructions; this tutorial walks you through the example templates that ship with the repository.
+Document Prefiller is a desktop application that lets you fill Microsoft Word (.docx) templates with custom values by using replacement markers. See the [root README](../../README.md) for installation instructions; this tutorial walks you through the example templates that ship with the repository.
 
 The guide is aimed at anyone who wants to see the marker workflow in action using the ready‑made files in `docs/tutorial/templates`.
 
@@ -30,7 +30,7 @@ Marker status in the UI:
 - **New** – the marker is detected but not yet saved in the values file (highlighted in the list).
 - **Removed** – the marker exists in the saved values file but no longer appears in any document (shown greyed out).
 
-See the root README’s short marker summary for a quick recap.
+See the [markers reference](../markers.md) for a quick recap.
 
 ## Step-by-step walkthrough
 
