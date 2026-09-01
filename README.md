@@ -14,11 +14,11 @@ A desktop application for prefilling Microsoft Word (.docx) documents with repla
 - **Window State Memory**: Remembers window size, position, and last used folder.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
 - **Clean UI**: Built with Vue.js 3 and Vuetify 3 for a modern, responsive interface.
-- **Automatic Updates**: the app checks GitHub for new versions at launch.
+- **Automatic Updates**: The app checks GitHub for new versions at launch.
 
 ## Installation
 
-Download the prebuild binary from the [latest release](https://github.com/abraemer/document-prefiller/releases/latest) for your platform.
+Download the prebuilt binary from the [latest release](https://github.com/abraemer/document-prefiller/releases/latest) for your platform.
 
 ## Quick start
 
