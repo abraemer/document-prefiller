@@ -7,6 +7,6 @@ The app checks for updates automatically when it starts (no button, no periodic 
 - **Windows portable build**: the app detects the portable environment and skips update checks. Portable users must download new versions manually.
 - **Development builds**: never check for updates.
 
-**Release process**: the first release shipped with this feature must be versioned above 1.0.0 and tagged `vX.Y.Z`; releases must be published (not draft) for the updater to detect them.
+Releases must be tagged `vX.Y.Z` and published (not draft) for the updater to detect them.
 
 See [development guide](development.md) for building release binaries.
