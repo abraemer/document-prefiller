@@ -31,6 +31,8 @@ New to Document Prefiller? Walk through the **[step-by-step tutorial](docs/tutor
 5. Click **Replace** to generate documents.
 6. Values are remembered for the next session.
 
+To make your own templates, open an existing .docx in Word and type a marker such as `REPLACEME-NAME` wherever a value should be filled in later. When the app replaces markers it writes a copy of your template and inserts the plain replacement text only — the template's original formatting (styles, tables, images, etc.) is preserved.
+
 Example marker: `REPLACEME-NAME` – see the full marker format rules in the [markers reference](docs/markers.md).
 
 ## Documentation

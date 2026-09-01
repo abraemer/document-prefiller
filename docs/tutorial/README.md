@@ -32,6 +32,12 @@ Marker status in the UI:
 
 See the [markers reference](../markers.md) for a quick recap.
 
+## Creating your own templates
+
+The example files above already contain markers, but you can turn any .docx into a template yourself: open the document in Word (or any editor that can save .docx) and type a marker such as `REPLACEME-NAME` at every spot that should be filled in later — like `Dear REPLACEME-RECIPIENT_NAME,` on a letter. Keep each marker within a single paragraph, then select that document's folder in the app.
+
+When you click *Replace…*, the app writes a filled copy of the template; the original file is never modified. The template's formatting is preserved: only the marker text is swapped for the value you entered, so styles, tables and images come out exactly as they are in the template.
+
 ## Step-by-step walkthrough
 
 1. **Launch the app** –
@@ -79,19 +85,4 @@ Open the generated files in Word, LibreOffice, or any compatible editor. The ori
 - **Empty value** – the marker is removed from the output document.
 - **Values are remembered** – the hidden `.replacement-values.json` file stores them per folder. Delete this file to start with a clean slate.
 
-## Regenerating everything
-
-The example templates, screenshots and the demo GIF are generated programmatically. From the repository root run:
-
-```bash
-source ~/.nvm/nvm.sh && nvm use 24 --silent && sleep 1
-pnpm generate:visuals
-```
-
-This script requires `ffmpeg` and a graphical session on Linux. To regenerate only the templates (no screenshots or GIF), run:
-
-```bash
-node .opencode/skills/tutorial-visuals/scripts/generate-templates.mjs
-```
-
-Full details are in the skill file `.opencode/skills/tutorial-visuals/SKILL.md`. A successful run also refreshes the `outputs/` folder and produces `docs/tutorial/assets/demo.gif` (the demo animation shown in the root README), although the GIF is not embedded in this README.
+Maintainers: see [Regenerating everything](../development.md#regenerating-everything) in the development guide for how the example files and screenshots are produced.

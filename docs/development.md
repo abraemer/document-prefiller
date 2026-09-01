@@ -86,7 +86,7 @@ document-prefiller/
 | `pnpm test:run` | Run tests once |
 | `pnpm test:ui` | Run tests with UI |
 | `pnpm test:coverage` | Run tests with coverage report |
-| `pnpm generate:visuals` | Regenerate tutorial screenshots, demo GIF and example outputs (requires ffmpeg) see [Regenerating everything](tutorial/README.md#regenerating-everything) |
+| `pnpm generate:visuals` | Regenerate tutorial screenshots, demo GIF and example outputs (requires ffmpeg) see [Regenerating everything](#regenerating-everything) |
 
 ## Testing
 
@@ -115,3 +115,20 @@ pnpm test:ui
 - **[Vite](https://vitejs.dev/)**: Fast build tool and dev server
 - **Vitest**: Unit testing framework
 - **JSZip**: .docx file manipulation
+
+## Regenerating everything
+
+The example templates, screenshots and the demo GIF (see the [tutorial](tutorial/README.md)) are generated programmatically. From the repository root run:
+
+```bash
+source ~/.nvm/nvm.sh && nvm use 24 --silent && sleep 1
+pnpm generate:visuals
+```
+
+This script requires `ffmpeg` and a graphical session on Linux. To regenerate only the templates (no screenshots or GIF), run:
+
+```bash
+node .opencode/skills/tutorial-visuals/scripts/generate-templates.mjs
+```
+
+Full details are in the skill file `.opencode/skills/tutorial-visuals/SKILL.md`. A successful run also refreshes the `outputs/` folder and produces `docs/tutorial/assets/demo.gif` (the demo animation shown in the root README), although the GIF is not embedded in the tutorial README.
