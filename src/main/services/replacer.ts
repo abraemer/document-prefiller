@@ -5,11 +5,10 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import JSZip from 'jszip';
 import type { ReplacementResult, ReplacementRequest } from '../../shared/types/data-models';
 import { copyDocxFiles, type CopyProgress } from '../utils/file';
 import { DOCUMENT_EXTENSION } from '../../shared/constants';
-import { replaceMarkersInDocumentXml } from '../../core/marker-replace-engine';
+import { DocxReplaceError, replaceMarkersInDocxBytes } from '../../core/docx-replace';
 
 /**
  * Custom error class for replacement operations
@@ -220,12 +219,18 @@ export async function processDocumentsBatch(
 /**
  * Replace markers in a single .docx file
  *
+ * Filesystem wrapper around the platform-neutral core round-trip
+ * (src/core/docx-replace.ts): read the file, delegate to
+ * replaceMarkersInDocxBytes, and re-throw any DocxReplaceError as a
+ * ReplacementError with the same errorType and message verbatim, attaching
+ * the filePath the core error cannot know.
+ *
  * @param filePath - Path to the .docx file
  * @param values - Replacement values (key: identifier, value: replacement text)
  * @param prefix - Marker prefix
  * @throws ReplacementError if replacement fails
  */
-async function replaceMarkersInFile(
+export async function replaceMarkersInFile(
   filePath: string,
   values: Record<string, string>,
   prefix: string
@@ -256,126 +261,25 @@ async function replaceMarkersInFile(
       );
     }
 
-    // Validate minimum file size
-    if (buffer.length < 4) {
-      throw new ReplacementError(
-        `Invalid .docx file: file too small (${buffer.length} bytes)`,
-        undefined,
-        filePath,
-        'corrupted_file'
-      );
-    }
-
-    // Check if it's a valid ZIP file (starts with PK signature)
-    if (buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
-      throw new ReplacementError(
-        `Invalid .docx file: not a valid ZIP archive (missing PK signature)`,
-        undefined,
-        filePath,
-        'corrupted_file'
-      );
-    }
-
-    // Load the ZIP archive
-    let zip: JSZip;
+    // Replace markers in the document bytes
+    let modifiedBytes: Uint8Array;
     try {
-      zip = await JSZip.loadAsync(buffer);
+      modifiedBytes = await replaceMarkersInDocxBytes(buffer, values, prefix);
     } catch (error) {
+      if (error instanceof DocxReplaceError) {
+        throw new ReplacementError(error.message, error.cause, filePath, error.errorType);
+      }
       throw new ReplacementError(
-        `Failed to parse .docx file: corrupted or invalid ZIP archive`,
+        `Failed to replace markers in file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         error instanceof Error ? error : undefined,
         filePath,
-        'corrupted_file'
-      );
-    }
-
-    // Get the main document XML file
-    const documentXml = zip.file('word/document.xml');
-    if (!documentXml) {
-      // List available files for better error message
-      const availableFiles = Object.keys(zip.files).join(', ');
-      throw new ReplacementError(
-        `Invalid .docx file: word/document.xml not found. Available entries: ${availableFiles}`,
-        undefined,
-        filePath,
-        'missing_file'
-      );
-    }
-
-    // Extract the XML content
-    let xmlContent: string;
-    try {
-      xmlContent = await documentXml.async('string');
-    } catch (error) {
-      throw new ReplacementError(
-        `Failed to extract XML content from document.xml`,
-        error instanceof Error ? error : undefined,
-        filePath,
-        'invalid_xml'
-      );
-    }
-
-    // Validate XML content is not empty
-    if (!xmlContent || xmlContent.trim().length === 0) {
-      throw new ReplacementError(
-        `Invalid .docx file: document.xml is empty`,
-        undefined,
-        filePath,
-        'invalid_xml'
-      );
-    }
-
-    // Validate XML has basic structure (must have both w:document and w:body)
-    if (!xmlContent.includes('<w:document') || !xmlContent.includes('<w:body')) {
-      throw new ReplacementError(
-        `Invalid .docx file: document.xml has invalid structure (missing w:document or w:body)`,
-        undefined,
-        filePath,
-        'invalid_xml'
-      );
-    }
-
-    // Replace markers in the XML
-    let modifiedXml: string;
-    try {
-      modifiedXml = replaceMarkersInXml(xmlContent, values, prefix);
-    } catch (error) {
-      throw new ReplacementError(
-        `Failed to replace markers in document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error instanceof Error ? error : undefined,
-        filePath,
-        'malformed_marker'
-      );
-    }
-
-    // Update the document in the ZIP
-    try {
-      zip.file('word/document.xml', modifiedXml);
-    } catch (error) {
-      throw new ReplacementError(
-        `Failed to update document.xml in ZIP archive`,
-        error instanceof Error ? error : undefined,
-        filePath,
-        'write_error'
-      );
-    }
-
-    // Generate the new buffer
-    let newBuffer: Buffer;
-    try {
-      newBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-    } catch (error) {
-      throw new ReplacementError(
-        `Failed to generate .docx file buffer`,
-        error instanceof Error ? error : undefined,
-        filePath,
-        'write_error'
+        'unknown'
       );
     }
 
     // Write the modified file
     try {
-      await fs.writeFile(filePath, newBuffer);
+      await fs.writeFile(filePath, modifiedBytes);
     } catch (error) {
       throw new ReplacementError(
         `Failed to write modified file: ${filePath}`,
@@ -397,23 +301,3 @@ async function replaceMarkersInFile(
   }
 }
 
-/**
- * Replace markers in Word document XML
- *
- * Delegates to the unified paragraph-level replacement engine
- * (marker-replace-engine.ts), which shares its segmentation and marker regex
- * with detection, handles markers fragmented across runs, and merges the
- * fragment runs' formatting into the replacement run.
- *
- * @param xmlContent - XML content from word/document.xml
- * @param values - Replacement values (key: identifier, value: replacement text)
- * @param prefix - Marker prefix
- * @returns Modified XML content
- */
-function replaceMarkersInXml(
-  xmlContent: string,
-  values: Record<string, string>,
-  prefix: string
-): string {
-  return replaceMarkersInDocumentXml(xmlContent, values, prefix);
-}
