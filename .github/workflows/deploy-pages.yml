@@ -19,10 +19,6 @@ jobs:
   gate:
     permissions:
       contents: read
-      # configure-pages@v6 unconditionally calls GET /repos/{owner}/{repo}/pages
-      # (its main() throws on any API error) and the Pages API is not readable
-      # with a contents-only token — deterministic fix per dual review.
-      pages: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -47,28 +43,97 @@ jobs:
         run: pnpm --config.minimum-release-age=0 test:run
       - name: Web smoke (builds dist-web itself)
         run: pnpm --config.minimum-release-age=0 test:web-smoke
-      - name: Configure Pages
+      - name: Upload dist-web artifact
         if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v6
-      - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
+          name: dist-web
           path: dist-web
+          if-no-files-found: error
 
-  deploy:
+  publish:
     if: github.event_name != 'pull_request'
     needs: gate
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # Serializes every gh-pages mutation (production deploys AND PR preview
+    # publishes). A run superseded while PENDING is canceled by GitHub and does
+    # NOT self-heal; recover with a workflow_dispatch re-deploy.
+    concurrency:
+      group: gh-pages-mutate
+      cancel-in-progress: false
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # Idempotent gh-pages bootstrap. MUST run before the artifact download:
+      # the first-run orphan branch wipes the working tree, so a payload
+      # downloaded into the workspace first would be destroyed. The git
+      # identity lines come FIRST because hosted runners ship no gitconfig.
+      - name: Bootstrap gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+      # The payload must stay OUTSIDE the workspace: inside it, the rsync
+      # destination would be the source's parent and --delete would remove the
+      # payload mid-transfer (rsync exits 24 "file has vanished", root left stale).
+      - name: Download dist-web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-web
+          path: ${{ runner.temp }}/dist-web
+      - name: Sync dist into gh-pages worktree
+        run: |
+          rsync -a --delete --exclude 'pr-*/' --exclude '.git/' --exclude '.nojekyll' "$RUNNER_TEMP/dist-web/" "$(pwd)/"
+      # Branch-based Pages runs Jekyll without this marker.
+      - name: Mark no-Jekyll
+        run: |
+          touch .nojekyll
+      - name: Publish to gh-pages
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Nothing to deploy: gh-pages already matches the built dist."
+            exit 0
+          fi
+          attempt=1
+          max_attempts=3
+          while :; do
+            git add -A
+            git commit -m "Deploy webapp to gh-pages from ${GITHUB_SHA}"
+            if git push origin HEAD:gh-pages; then
+              exit 0
+            fi
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "Push to gh-pages rejected after $attempt attempts." >&2
+              exit 1
+            fi
+            echo "Push rejected (non-fast-forward race); re-bootstrapping and retrying."
+            attempt=$((attempt + 1))
+            git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            CUR=$(git symbolic-ref --short -q HEAD || true)
+            if [ "$CUR" = "gh-pages" ]; then
+              if git show-ref --verify --quiet refs/heads/gh-pages; then
+                git fetch origin gh-pages && git reset --hard origin/gh-pages
+              fi
+            else
+              if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+                git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+              else
+                git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+              fi
+            fi
+            rsync -a --delete --exclude 'pr-*/' --exclude '.git/' --exclude '.nojekyll' "$RUNNER_TEMP/dist-web/" "$(pwd)/"
+            touch .nojekyll
+          done
