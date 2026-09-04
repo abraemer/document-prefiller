@@ -1,0 +1,74 @@
+name: Deploy webapp to Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow only one concurrent deployment per ref; do NOT cancel in-progress
+# production deployments (verbatim intent of the official actions/starter-workflows
+# static.yml). Ref-scoped so PR gate runs never queue behind (or get superseded
+# by) main-branch deploy runs — matches ci.yml's own ref-scoped house convention.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    permissions:
+      contents: read
+      # configure-pages@v6 unconditionally calls GET /repos/{owner}/{repo}/pages
+      # (its main() throws on any API error) and the Pages API is not readable
+      # with a contents-only token — deterministic fix per dual review.
+      pages: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Install Playwright Chromium
+        run: pnpm --config.minimum-release-age=0 exec playwright install --with-deps chromium
+      - name: Lint
+        run: pnpm --config.minimum-release-age=0 lint:check
+      - name: Typecheck
+        run: pnpm --config.minimum-release-age=0 typecheck
+      - name: Unit tests
+        run: pnpm --config.minimum-release-age=0 test:run
+      - name: Web smoke (builds dist-web itself)
+        run: pnpm --config.minimum-release-age=0 test:web-smoke
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist-web
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: gate
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
