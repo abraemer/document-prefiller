@@ -42,8 +42,8 @@ const folderAPI = {
   /**
    * Scan a folder for documents with markers
    */
-  scanFolder: async (folderPath: string): Promise<ScanFolderResponse> => {
-    return await ipcRenderer.invoke('folder:scan', { folderPath } as ScanFolderRequest)
+  scanFolder: async (folderPath: string, prefix?: string): Promise<ScanFolderResponse> => {
+    return await ipcRenderer.invoke('folder:scan', { folderPath, prefix } as ScanFolderRequest)
   },
 
   /**

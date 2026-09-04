@@ -798,7 +798,7 @@ async function scanFolder(): Promise<void> {
     showProgress.value = false;
 
     // Use IPC to scan folder
-    const result = await window.api.folder.scanFolder(currentFolder.value);
+    const result = await window.api.folder.scanFolder(currentFolder.value, markerPrefix.value);
     
     if (result.error) {
       showError.value = true;
