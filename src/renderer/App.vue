@@ -116,15 +116,35 @@
                             sm="4"
                             class="text-sm-right"
                           >
-                            <v-btn
-                              color="secondary"
-                              variant="outlined"
-                              prepend-icon="mdi-refresh"
-                              block
-                              @click="handleRefresh"
-                            >
-                              Refresh
-                            </v-btn>
+                            <!-- d-flex ignores the col's text-sm-right, so
+                                 the row is right-aligned explicitly on sm+ -->
+                            <div class="d-flex align-center justify-sm-end">
+                              <v-tooltip
+                                v-if="isSnapshotVariant"
+                                location="top"
+                              >
+                                <template #activator="{ props: tooltipProps }">
+                                  <v-icon
+                                    v-bind="tooltipProps"
+                                    icon="mdi-alert"
+                                    size="small"
+                                    color="warning"
+                                    class="mr-1"
+                                  />
+                                </template>
+                                <span class="refresh-tooltip-text">This browser keeps a local snapshot of your documents that doesn't update automatically. To load new or changed documents, click 'Change' and re-select the folder.</span>
+                              </v-tooltip>
+                              <v-btn
+                                color="secondary"
+                                variant="outlined"
+                                prepend-icon="mdi-refresh"
+                                :block="!isSnapshotVariant"
+                                :disabled="isSnapshotVariant"
+                                @click="handleRefresh"
+                              >
+                                Refresh
+                              </v-btn>
+                            </div>
                           </v-col>
                         </v-row>
                       </v-card-text>
@@ -243,6 +263,16 @@
                     </v-btn>
                   </v-col>
                 </v-row>
+
+                <!-- Privacy note -->
+                <div class="text-center text-caption text-grey-darken-1 mt-3">
+                  <v-icon
+                    icon="mdi-lock"
+                    size="x-small"
+                    class="mr-1"
+                  />
+                  All processing happens locally — your documents never leave this device.
+                </div>
               </v-card-text>
             </v-card>
           </v-col>
@@ -533,6 +563,15 @@ const canReplace = computed(() => {
 
 const prefixRules = computed(() => {
   return getPrefixRules();
+});
+
+/**
+ * Whether the workspace is a browser-local snapshot (web tier without live
+ * folder access): Refreshing it cannot see disk changes, so the button is
+ * disabled behind a warning tooltip pointing at 'Change'.
+ */
+const isSnapshotVariant = computed(() => {
+  return capabilities.variant === 'web-upload';
 });
 
 // ============================================================================
@@ -1083,5 +1122,13 @@ onUnmounted(() => {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* Vuetify tooltips have no intrinsic max-width (the overlay only clamps to
+   the viewport), so the long Refresh warning would stretch edge-to-edge on
+   one line. Constrain it to a compact multi-line chip instead. */
+.refresh-tooltip-text {
+  display: block;
+  max-width: 280px;
 }
 </style>
