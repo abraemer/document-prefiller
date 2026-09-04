@@ -4,7 +4,8 @@ name: PR preview
 # cleanup. Fork PRs build unprivileged in `build`; the approval-gated
 # jobs below publish them from base-repo-context triggers (review
 # submitted, fork build run completed) without ever checking out PR
-# content. The weekly prune arrives in a later wave.
+# content, and a scheduled weekly prune garbage-collects the preview
+# folders of PRs that were closed more than two weeks ago.
 on:
   pull_request:
     branches: [main]
@@ -14,6 +15,9 @@ on:
   workflow_run:
     workflows: ["PR preview"]
     types: [completed]
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -470,3 +474,157 @@ jobs:
           # there and re-validated by the composite's env contract.
           pr-number: ${{ env.PR_NUMBER }}
           mode: publish
+
+  # --- Scheduled janitor (weekly timer + manual dispatch) ---
+  #
+  # Backstop for previews the close-time `cleanup` job cannot remove:
+  # fork-PR folders (a fork-close event carries a read-only token, so
+  # `cleanup` deliberately skips them) and previews orphaned by failed
+  # or superseded runs. Folders of closed PRs are retained for 14 days
+  # before deletion so reviewers can still open recent previews.
+
+  prune:
+    # Scheduled and manual runs only; every PR-driven event above keeps
+    # routing to the jobs that gate on PR context.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # `pull-requests` is its own token scope: inside a permissions block
+    # every unspecified scope becomes none, so a contents-only prune
+    # would 403 on every gh pr view call below.
+    permissions:
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Joins the serialized gh-pages mutation group; never cancel a
+    # mutation mid-flight.
+    concurrency:
+      group: gh-pages-mutate
+      cancel-in-progress: false
+    steps:
+      # Write-token job: main only, never any PR merge ref.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      # The pinned bootstrap below has no missing-branch handling of its
+      # own (an origin without gh-pages would send it down the
+      # orphan+wipe path). Nothing to prune in that case, so defer the
+      # whole job green. A step's exit 0 alone does not end a job, so the
+      # exported flag gates every later step.
+      - name: Check gh-pages branch exists on origin
+        run: |
+          git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1 || exit 0
+          echo "GH_PAGES_PRESENT=true" >> "$GITHUB_ENV"
+      # Idempotent gh-pages bootstrap; the identity lines come first
+      # because hosted runners ship no gitconfig — the prune's single
+      # commit+push needs them.
+      - name: Bootstrap gh-pages branch
+        if: env.GH_PAGES_PRESENT == 'true'
+        run: |
+          git config user.name "github-actions[bot]" && \
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+      # gh needs the token env even with the permissions block set above.
+      # Folder names come from the gh-pages tree itself and the PR number
+      # is numerically validated before it reaches gh, so no
+      # attacker-influenceable field is ever interpolated here. A
+      # per-folder gh failure (PR predates numbering, history was
+      # rewritten) skips that folder without failing the job; a
+      # commit/push failure after real deletions stays red.
+      - name: Prune closed-PR preview folders
+        if: env.GH_PAGES_PRESENT == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CUTOFF=$(date -u -d '14 days ago' '+%s')
+          deleted=()
+          for dir in pr-*/; do
+            [ -d "$dir" ] || continue
+            name=${dir%/}
+            if ! [[ "$name" =~ ^pr-([0-9]+)$ ]]; then
+              echo "skipping '$name': not a pr-<number> preview folder"
+              continue
+            fi
+            n=${BASH_REMATCH[1]}
+            view=$(gh pr view "$n" --json state,closedAt 2>/dev/null || true)
+            if [ -z "$view" ]; then
+              echo "skipping pr-$n: gh pr view failed (PR may predate numbering or history was rewritten)"
+              continue
+            fi
+            state=$(printf '%s' "$view" | jq -r '.state')
+            closed_at=$(printf '%s' "$view" | jq -r '.closedAt')
+            if [ "$state" = "OPEN" ]; then
+              continue
+            fi
+            closed_ts=$(date -u -d "$closed_at" '+%s' 2>/dev/null || true)
+            if [ -z "$closed_ts" ]; then
+              echo "skipping pr-$n: closed ($state) but closedAt is missing or unparseable; keeping folder"
+              continue
+            fi
+            if [ "$closed_ts" -ge "$CUTOFF" ]; then
+              continue
+            fi
+            rm -rf "${dir:?}"
+            echo "pruning $name (closed at $closed_at)"
+            deleted+=("$name")
+          done
+          if [ "${#deleted[@]}" -eq 0 ]; then
+            echo "no preview folder of a closed PR older than 14 days; nothing to prune"
+            exit 0
+          fi
+          bootstrap_gh_pages() {
+            git config user.name "github-actions[bot]" && \
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            CUR=$(git symbolic-ref --short -q HEAD || true)
+            if [ "$CUR" = "gh-pages" ]; then
+              if git show-ref --verify --quiet refs/heads/gh-pages; then
+                git fetch origin gh-pages && git reset --hard origin/gh-pages
+              fi
+            else
+              if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+                git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+              else
+                git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+              fi
+            fi
+          }
+          reapply_deletions() {
+            for d in "${deleted[@]}"; do
+              rm -rf "${d:?}"
+            done
+          }
+          pushed=0
+          for attempt in 1 2 3; do
+            # A pathspec glob that matches nothing is fatal to git add,
+            # but that is skip-class here (a competing prune already took
+            # the folders); the porcelain check below is the real gate.
+            git add -A -- 'pr-*' || true
+            if [ -z "$(git status --porcelain)" ]; then
+              echo "gh-pages tree already matches; nothing to commit"
+              exit 0
+            fi
+            git commit -m "prune: remove preview folders of closed PRs"
+            if git push origin HEAD:gh-pages; then
+              pushed=1
+              break
+            fi
+            echo "push to gh-pages rejected on attempt $attempt; re-running gh-pages bootstrap and retrying"
+            bootstrap_gh_pages
+            reapply_deletions
+          done
+          if [ "$pushed" != "1" ]; then
+            echo "::error::failed to push the gh-pages prune after 3 attempts" >&2
+            exit 1
+          fi
+          echo "pruned preview folders: ${deleted[*]}"
