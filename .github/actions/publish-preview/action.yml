@@ -1,0 +1,171 @@
+name: publish-preview
+description: Publish or remove a pr-<n>/ preview folder on gh-pages and upsert the PR preview comment
+inputs:
+  pr-number:
+    description: PR number whose pr-<n>/ preview folder is managed
+    required: true
+    type: string
+  mode:
+    description: Either publish (copy dist-web/ into pr-<n>/) or remove (delete pr-<n>/)
+    required: false
+    default: publish
+    type: string
+  github-token:
+    description: Token used for the PR OPEN-state pre-check and the PR comment upsert
+    required: false
+    default: ${{ github.token }}
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Validate PR number
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+          echo "pr-number validated: $PR_NUMBER"
+        else
+          echo "::error::pr-number must be numeric; refusing to run (potential command injection)"
+          exit 1
+        fi
+
+    - name: Bootstrap gh-pages branch
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]" && \
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        CUR=$(git symbolic-ref --short -q HEAD || true)
+        if [ "$CUR" = "gh-pages" ]; then
+          if git show-ref --verify --quiet refs/heads/gh-pages; then
+            git fetch origin gh-pages && git reset --hard origin/gh-pages
+          fi
+        else
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+          else
+            git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          fi
+        fi
+
+    - name: Verify PR is still open (publish mode only)
+      id: pr-state
+      if: ${{ inputs.mode == 'publish' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        state="$(gh pr view "$PR_NUMBER" --json state --jq .state || true)"
+        if [ "$state" = "OPEN" ]; then
+          echo "PR #$PR_NUMBER is OPEN; proceeding with preview publish"
+          echo "open=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "PR #$PR_NUMBER is not OPEN (state: '${state:-unavailable}'); skipping publish without mutating gh-pages"
+          echo "open=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Publish preview folder
+      if: ${{ inputs.mode == 'publish' && steps.pr-state.outputs.open == 'true' }}
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        mkdir -p "pr-$PR_NUMBER/"
+        cp -a dist-web/. "pr-$PR_NUMBER/"
+        echo "published dist-web payload into pr-$PR_NUMBER/"
+
+    - name: Remove preview folder
+      if: ${{ inputs.mode == 'remove' }}
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        rm -rf "pr-$PR_NUMBER/"
+        echo "removed pr-$PR_NUMBER/ (no-op if it was already gone)"
+
+    - name: Commit and push gh-pages
+      if: ${{ inputs.mode == 'remove' || (inputs.mode == 'publish' && steps.pr-state.outputs.open == 'true') }}
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+        MODE: ${{ inputs.mode }}
+      run: |
+        bootstrap_gh_pages() {
+          git config user.name "github-actions[bot]" && \
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+        }
+        mutate_preview() {
+          if [ "$MODE" = "publish" ]; then
+            mkdir -p "pr-$PR_NUMBER/"
+            cp -a dist-web/. "pr-$PR_NUMBER/"
+          else
+            rm -rf "pr-$PR_NUMBER/"
+          fi
+        }
+        pushed=0
+        for attempt in 1 2 3; do
+          if [ -z "$(git status --porcelain -- "pr-$PR_NUMBER")" ]; then
+            echo "no gh-pages changes for pr-$PR_NUMBER; skipping commit and push"
+            exit 0
+          fi
+          git add -A -- "pr-$PR_NUMBER"
+          git commit -m "preview: $MODE pr-$PR_NUMBER"
+          if git push origin HEAD:gh-pages; then
+            pushed=1
+            break
+          fi
+          echo "push to gh-pages rejected on attempt $attempt; re-running gh-pages bootstrap and retrying"
+          bootstrap_gh_pages
+          mutate_preview
+        done
+        if [ "$pushed" != "1" ]; then
+          echo "::error::failed to push gh-pages after 3 attempts"
+          exit 1
+        fi
+
+    - name: Upsert PR preview comment
+      if: ${{ inputs.mode == 'publish' && steps.pr-state.outputs.open == 'true' }}
+      uses: actions/github-script@v7
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const marker = '<!-- pr-preview-url -->';
+          const pr = process.env.PR_NUMBER;
+          const body = `${marker}\nPreview: https://abraemer.github.io/document-prefiller/pr-${pr}/ — first publish takes a minute or two to appear; re-publishes may need a hard refresh (Pages caches HTML ~10 min).`;
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: Number(pr),
+          });
+          const existing = comments.data.find(c => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(pr),
+              body,
+            });
+          }
