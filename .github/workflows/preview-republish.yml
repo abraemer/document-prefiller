@@ -1,0 +1,159 @@
+name: PR preview republish
+
+# Companion to PR preview: a workflow_run trigger cannot live inside the
+# workflow it listens to (GitHub rejects "Workflow 'PR preview' cannot
+# listen to itself" and the whole preview.yml fails to compile), so the
+# completed-run republish for approved fork PRs lives here, listening to
+# the PR preview workflow's pull_request runs.
+
+on:
+  workflow_run:
+    workflows: ["PR preview"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  republish-approved-fork:
+    # Republish-on-push for approved fork PRs: fork synchronize runs are
+    # read-only and the review trigger has no synchronize type, so the
+    # completed-run trigger carries the write token instead. The
+    # pull_request event filter also stops the preview workflow's
+    # review-submitted and scheduled runs from re-firing this republish.
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name != github.repository
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: gh-pages-mutate
+      cancel-in-progress: false
+    # Pins auth for EVERY gh call below; an anonymous fallback `gh api`
+    # in the derive step would fail into a deferral branch and silently
+    # never publish.
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Write-token job: main only, never the fork's merge ref.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Bootstrap gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+      # Pre-check FIRST: a close-action run builds nothing and uploads
+      # no preview-dist, so a bare download would go RED on every
+      # fork-PR close. The response is an object, so only the nested
+      # filter can ever see zero.
+      - name: Check triggering run artifact exists
+        run: |
+          COUNT="$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts?name=preview-dist" --jq '.artifacts | length')"
+          if [ "$COUNT" = "0" ]; then
+            echo "triggering run has no preview-dist artifact; nothing to publish"
+            exit 0
+          fi
+          echo "ARTIFACT_READY=true" >> "$GITHUB_ENV"
+      # The payload names the run; no lookup needed.
+      - name: Download triggering run artifact
+        if: env.ARTIFACT_READY == 'true'
+        run: gh run download "${{ github.event.workflow_run.id }}" --name preview-dist --dir "$RUNNER_TEMP/artifact"
+      # Derive the PR from the run's GitHub-recorded identity, NEVER
+      # from the fork-controlled manifest. The fork's branch name is
+      # attacker-chosen, so it reaches this body ONLY as an environment
+      # variable; gh percent-encodes -f fields into the query string.
+      - name: Derive PR from run identity
+        if: env.ARTIFACT_READY == 'true'
+        env:
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          PRS="$(gh api "repos/${{ github.repository }}/pulls" --method GET -f head="$HEAD_OWNER:$HEAD_BRANCH" -f base=main --jq 'length')"
+          if [ "$PRS" = "0" ]; then
+            echo "no open PR for the triggering run's head branch; nothing to publish"
+            exit 0
+          fi
+          if [ "$PRS" != "1" ]; then
+            echo "::error::expected exactly one PR for the run's head branch; got $PRS" >&2
+            exit 1
+          fi
+          PR_NUMBER="$(gh api "repos/${{ github.repository }}/pulls" --method GET -f head="$HEAD_OWNER:$HEAD_BRANCH" -f base=main --jq '.[0].number')"
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::derived PR number failed numeric validation; refusing to publish" >&2
+            exit 1
+          fi
+          echo "derived PR_NUMBER=$PR_NUMBER"
+          echo "PR_NUMBER=$PR_NUMBER" >> "$GITHUB_ENV"
+      # The manifest is cross-checked as DATA against derived values: a
+      # stale or forged manifest (the fork writes it) fails closed.
+      - name: Cross-check manifest against derived values
+        if: env.PR_NUMBER != ''
+        env:
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          manifest_head_sha="$(cat "$RUNNER_TEMP/artifact/preview-meta/HEAD_SHA")"
+          if [ "$manifest_head_sha" != "$RUN_HEAD_SHA" ]; then
+            echo "artifact HEAD_SHA does not match the triggering run's head SHA; skipping (stale or forged manifest)"
+            exit 0
+          fi
+          manifest_pr_number="$(cat "$RUNNER_TEMP/artifact/preview-meta/PR_NUMBER")"
+          if [ "$manifest_pr_number" != "$PR_NUMBER" ]; then
+            echo "artifact PR_NUMBER does not match the derived PR; skipping (stale or forged manifest)"
+            exit 0
+          fi
+          echo "MANIFEST_OK=true" >> "$GITHUB_ENV"
+      # Live gate: the PR must still be OPEN, approved by a write-access
+      # reviewer, and its head must not have moved past the built
+      # commit. headRefOid is the JSON field for the PR head SHA.
+      - name: Gate on live PR state and approval
+        if: env.MANIFEST_OK == 'true'
+        env:
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          PR_VIEW="$(gh pr view "$PR_NUMBER" --json state,reviewDecision,headRefOid)"
+          state="$(printf '%s' "$PR_VIEW" | jq -r '.state')"
+          review_decision="$(printf '%s' "$PR_VIEW" | jq -r '.reviewDecision')"
+          head_oid="$(printf '%s' "$PR_VIEW" | jq -r '.headRefOid')"
+          if [ "$state" != "OPEN" ]; then
+            echo "PR #$PR_NUMBER is not OPEN (state: $state); nothing to publish"
+            exit 0
+          fi
+          if [ "$review_decision" != "APPROVED" ]; then
+            echo "PR #$PR_NUMBER is not approved (reviewDecision: $review_decision); nothing to publish"
+            exit 0
+          fi
+          if [ "$head_oid" != "$RUN_HEAD_SHA" ]; then
+            echo "PR #$PR_NUMBER head has moved past the built commit; nothing to publish"
+            exit 0
+          fi
+          echo "live gate passed for PR #$PR_NUMBER"
+          echo "LIVE_GATE_OK=true" >> "$GITHUB_ENV"
+      - name: Stage fork dist-web payload
+        if: env.LIVE_GATE_OK == 'true'
+        run: |
+          mkdir -p dist-web
+          cp -a "$RUNNER_TEMP/artifact/dist-web/." dist-web/
+      - name: Publish approved fork preview folder
+        if: env.LIVE_GATE_OK == 'true'
+        uses: ./.github/actions/publish-preview
+        with:
+          # The GITHUB_ENV export from the derive step — validated numeric
+          # there and re-validated by the composite's env contract.
+          pr-number: ${{ env.PR_NUMBER }}
+          mode: publish
+
