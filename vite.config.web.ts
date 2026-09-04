@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Vite derives the output HTML filename from the source basename, so the
 // single web entry (index-web.html, todo 13) builds to dist-web/index-web.html.
 // Rename it to index.html so the bundle can be served at any host root
-// (vite preview /, document-prefiller.braemer.me) without a second input.
+// (vite preview /, https://abraemer.github.io/document-prefiller/) without a second input.
 function renameWebEntryToIndex(): Plugin {
   return {
     name: 'rename-web-entry-to-index',
