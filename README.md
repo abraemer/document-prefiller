@@ -36,7 +36,7 @@ Everything stays local. Your documents are never uploaded to any server — ther
 
 Download the prebuilt binary from the [latest release](https://github.com/abraemer/document-prefiller/releases/latest) for your platform.
 
-You can also use the web app at https://abraemer.github.io/document-prefiller/ as a zero‑install alternative.
+You can also use the web app at https://abraemer.github.io/document-prefiller/ as a zero-install alternative.
 
 ## Quick start
 
