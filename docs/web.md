@@ -48,3 +48,25 @@ The **historical BCD floor** numbers show when browsers first implemented the fe
 * See the README feature matrix for a side‑by‑side comparison.
 * The web variant has no auto‑update; refer to `docs/auto-update.md` for the desktop behavior.
 * The step‑by‑step tutorial walks through using the web variant – see `docs/tutorial/README.md`.
+
+## PR previews
+
+The preview system publishes a static snapshot of the web app for a given pull‑request.
+
+* URL scheme: `https://abraemer.github.io/document-prefiller/pr-<n>/` where `<n>` is the PR number.
+* For pull‑requests opened in the same repository the preview folder is created automatically when the workflow runs and is removed as soon as the PR is closed.
+* For forked pull‑requests a preview is generated only after a maintainer with write access approves the PR. Approval is gated by the `author_association` and `reviewDecision` fields; only reviewers with write permission can trigger the publish step.
+* GitHub Pages serves the preview from the `gh-pages` branch; the HTML is cached for up to ten minutes. A hard‑refresh (Shift + Reload) can be used to bypass the cache. The first publish of a PR typically takes about a minute while the workflow builds the static site.
+* When a same‑repo PR is closed its folder – and any orphaned assets that were left behind – are deleted immediately. Fork‑repo folders are kept until the weekly prune job runs; they are removed only after the PR has been closed for more than 14 days (worst‑case about three weeks). The prune job deletes the whole folder, so no individual orphaned assets are kept.
+* Previews expose only the static web app; no secrets or back-end code are published.
+
+### Maintenance
+
+* GitHub Pages is configured in the repository Settings → Pages to deploy from the `gh-pages` branch, root directory. A `.nojekyll` file is present to disable Jekyll processing.
+* Rollback: flip Settings → Pages back to “GitHub Actions” source and revert the workflow merge. The existing production artifact remains live until the flip, so service continuity is maintained.
+* Concurrency drop‑window: a run that is superseded while pending in the shared `gh-pages-mutate` group is cancelled rather than retried; the preview self‑heals on the next push, while production can be redeployed manually via `workflow_dispatch`.
+* Accepted risks:
+  1. Same‑repo PRs execute their own merge‑ref version of `preview.yml` with a write token – tolerable because only a maintainer can merge.
+  2. Approval gates rely on `author_association` + `reviewDecision`; a compromised collaborator account is the residual risk.
+  3. Approval reviews the PR source, not the built output – the fork’s own build produces the published bytes, so the preview URL should be treated as untrusted same‑origin content.
+
