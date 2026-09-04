@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import JSZip from 'jszip';
 import { parseDocxFile } from '../../src/main/utils/docx-parser.js';
-import { detectMarkers } from '../../src/main/utils/marker-detection.js';
+import { detectMarkers } from '../../src/core/marker-detection.js';
 import { DEFAULT_PREFIX } from '../../src/shared/constants/index.js';
 
 const templatesDir = path.resolve(process.cwd(), 'docs/tutorial/templates');

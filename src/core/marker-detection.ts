@@ -8,7 +8,7 @@ import {
   MAX_MARKER_NAME_LENGTH,
   MIN_PREFIX_LENGTH,
   MAX_PREFIX_LENGTH,
-} from '../../shared/constants/index.js';
+} from '../shared/constants/index.js';
 
 /**
  * Error class for marker detection errors

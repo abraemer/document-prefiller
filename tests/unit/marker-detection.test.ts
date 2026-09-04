@@ -12,7 +12,7 @@ import {
   createMarkerRegex,
   detectMarkers,
   MarkerDetectionError,
-} from '../../src/main/utils/marker-detection.js';
+} from '../../src/core/marker-detection.js';
 
 describe('Marker Detection Utility', () => {
   // ============================================================================
