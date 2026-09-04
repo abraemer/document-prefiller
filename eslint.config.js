@@ -75,6 +75,7 @@ export default [
       'node_modules/**',
       'dist/**',
       'dist-electron/**',
+      'dist-web/**',
       'release/**',
       'out/**',
 

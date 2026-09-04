@@ -26,6 +26,9 @@ dist-electron
 release
 out
 
+# Web build output
+dist-web
+
 # Test coverage
 coverage
 
