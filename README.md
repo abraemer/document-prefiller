@@ -13,6 +13,13 @@ You can use Document Prefiller directly in your browser at <https://abraemer.git
 
 For a quick comparison of capabilities, see the [Web app vs. native app](#web-app-vs-native-app) feature matrix below. To download the native application, use the same [latest release] link as below.
 
+## Privacy
+
+Everything stays local. Your documents are never uploaded to any server — there is no server.
+
+- **Desktop app:** your files are read from and written to your disk directly.
+- **Web app:** a static site with no backend. Your documents are copied into your browser's local storage and processed entirely inside the browser; results are delivered as a local download. The only network traffic is fetching the app itself (and checking for a newer version).
+- **Saved values** also stay on your device — as `.replacement-values.json` in the document folder (desktop) or in the browser's local storage (web).
 
 ## Features
 
