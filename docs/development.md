@@ -87,6 +87,9 @@ document-prefiller/
 | `pnpm test:ui` | Run tests with UI |
 | `pnpm test:coverage` | Run tests with coverage report |
 | `pnpm generate:visuals` | Regenerate tutorial screenshots, demo GIF and example outputs (requires ffmpeg) see [Regenerating everything](#regenerating-everything) |
+| `pnpm build:web` | Build the web variant (outputs to dist-web/) |
+| `pnpm dev:web` | Run development server for web variant |
+| `pnpm preview:web` | Preview the built web variant |
 
 ## Testing
 
