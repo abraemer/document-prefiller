@@ -1,0 +1,193 @@
+name: PR preview
+
+# Same-repo PR previews on gh-pages (pr-<n>/ folders), plus close-time
+# cleanup. The fork-approval track and the weekly prune arrive in later
+# waves; the event_name guards below are already in place so the extra
+# trigger types those waves add cannot re-fire this workflow.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The event_name guard is load-bearing: on other trigger types the
+    # event action is not a pull_request action at all ("completed" for a
+    # completed-run trigger, etc.), so an unguarded build would run on
+    # every completed run of this workflow — including its own — and
+    # re-trigger itself indefinitely. Fork PRs build here too (unprivileged
+    # merge-ref checkout, read-only token): that is the whole point.
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: preview-build-${{ github.event.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Build webapp
+        run: pnpm --config.minimum-release-age=0 build:web
+      - name: Write preview manifest
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          mkdir -p preview-meta
+          printf '%s' "$HEAD_SHA" > preview-meta/HEAD_SHA
+          printf '%s' "$PR_NUMBER" > preview-meta/PR_NUMBER
+      - name: Upload preview-dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-dist
+          # Multi-path upload MUST stay newline-separated: upload-artifact v4
+          # splits the path input on newlines only (a comma is a literal
+          # filename character), and the least-common-ancestor of these two
+          # sibling folders keeps BOTH dist-web/ and preview-meta/ as
+          # folders inside the artifact.
+          path: |
+            dist-web
+            preview-meta
+          if-no-files-found: error
+
+  publish:
+    # Same-repo PRs only: fork events carry a read-only GITHUB_TOKEN that a
+    # permissions block cannot elevate. The event_name guard keeps the
+    # write token off fork events entirely; approved fork PRs publish
+    # through the dedicated base-repo-context jobs below instead.
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: build
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Serializes every gh-pages mutation (production deploys, preview
+    # publishes AND close-time cleanups); never cancel mid-mutation.
+    concurrency:
+      group: gh-pages-mutate
+      cancel-in-progress: false
+    steps:
+      # Write-token job: check out main, NEVER the default merge ref (the
+      # pull_request default ref is PR-derived content). The publish job
+      # needs no PR code — HEAD_SHA comes from the event, the build from
+      # the artifact — and main also pins the local composite below to its
+      # reviewed version.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      # Idempotent gh-pages bootstrap. MUST run before the artifact
+      # download: the first-run orphan branch wipes the working tree, so a
+      # payload downloaded into the workspace first would be destroyed.
+      # Identity lines first: hosted runners ship no gitconfig. The
+      # composite re-runs this same script and hits the fetch+reset/no-op
+      # branch by design.
+      - name: Bootstrap gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+      # ${{ runner.temp }} IS $RUNNER_TEMP at runtime, but the action's
+      # path input does not shell-expand $RUNNER_TEMP, so the run: steps
+      # below reference the same directory via bash. OUTSIDE the workspace
+      # keeps the commit surface clean; the caller stages only ./dist-web.
+      - name: Download preview-dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-dist
+          path: ${{ runner.temp }}/artifact
+      # The manifests are fork-run-controlled data (the fork path builds
+      # this same artifact); a privileged consumer MUST re-derive both
+      # values from its own event context and fail closed on any mismatch
+      # BEFORE the composite mutates gh-pages. The error messages
+      # intentionally do not echo the artifact values.
+      - name: Verify artifact manifest against event
+        env:
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_PR_NUMBER: ${{ github.event.number }}
+        run: |
+          manifest_head_sha="$(cat "$RUNNER_TEMP/artifact/preview-meta/HEAD_SHA")"
+          if [ "$manifest_head_sha" != "$EVENT_HEAD_SHA" ]; then
+            echo "::error::artifact HEAD_SHA does not match github.event.pull_request.head.sha; refusing to publish" >&2
+            exit 1
+          fi
+          manifest_pr_number="$(cat "$RUNNER_TEMP/artifact/preview-meta/PR_NUMBER")"
+          if [ "$manifest_pr_number" != "$EVENT_PR_NUMBER" ]; then
+            echo "::error::artifact PR_NUMBER does not match github.event.number; refusing to publish" >&2
+            exit 1
+          fi
+          echo "manifest verified against event context"
+      - name: Stage dist-web payload into workspace
+        run: |
+          mkdir -p dist-web
+          cp -a "$RUNNER_TEMP/artifact/dist-web/." dist-web/
+      - name: Publish PR preview folder
+        uses: ./.github/actions/publish-preview
+        with:
+          # From the EVENT, never from the artifact manifest.
+          pr-number: ${{ github.event.number }}
+          mode: publish
+
+  cleanup:
+    # Fires on the closed action. Same-repo only: a fork-close event carries
+    # a read-only GITHUB_TOKEN, so the local rm would succeed and the push
+    # fail 403 — a RED job on every fork-PR close; fork folders are left
+    # to the periodic prune instead.
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: gh-pages-mutate
+      cancel-in-progress: false
+    steps:
+      # Write-token job: main only, never the PR merge ref.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Bootstrap gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CUR=$(git symbolic-ref --short -q HEAD || true)
+          if [ "$CUR" = "gh-pages" ]; then
+            if git show-ref --verify --quiet refs/heads/gh-pages; then
+              git fetch origin gh-pages && git reset --hard origin/gh-pages
+            fi
+          else
+            if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+              git fetch origin gh-pages && git switch -c gh-pages --track origin/gh-pages
+            else
+              git switch --orphan gh-pages && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            fi
+          fi
+      - name: Remove PR preview folder
+        uses: ./.github/actions/publish-preview
+        with:
+          # From the EVENT, never from the artifact manifest.
+          pr-number: ${{ github.event.number }}
+          mode: remove
