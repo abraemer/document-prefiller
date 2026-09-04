@@ -7,7 +7,7 @@ A desktop application for prefilling Microsoft Word (.docx) documents with repla
 
 ## Try it on the web
 
-You can use Document Prefiller directly in your browser at <https://document-prefiller.braemer.me>. No installation is required.
+You can use Document Prefiller directly in your browser at <https://abraemer.github.io/document-prefiller/>. No installation is required.
 
 > **Warning:** Functionality in the web app is a bit *browser-dependent*. Full live‑folder access works best in Chrome or Edge; other browsers operate from uploaded copies. The native desktop app provides more consistent behavior and additional features.
 
@@ -29,7 +29,7 @@ For a quick comparison of capabilities, see the [Web app vs. native app](#web-ap
 
 Download the prebuilt binary from the [latest release](https://github.com/abraemer/document-prefiller/releases/latest) for your platform.
 
-You can also use the web app at https://document-prefiller.braemer.me as a zero‑install alternative.
+You can also use the web app at https://abraemer.github.io/document-prefiller/ as a zero‑install alternative.
 
 ## Quick start
 
@@ -55,7 +55,7 @@ Example marker: `REPLACEME-NAME` – see the full marker format rules in the [ma
 | Disk edits visible after rescan: yes | yes | no — re-upload to sync | no — re-upload to sync |
 | Output delivery: written to an output folder, opened for you | ZIP download | ZIP download | ZIP download |
 | Saved values: .replacement-values.json in the folder | in the browser + inside the ZIP | in the browser + inside the ZIP | in the browser + inside the ZIP — first upload may miss the values file |
-| Auto-update: built-in | always current | always current | always current |
+| Auto-update: built-in | current (≤10 min cache lag) | current (≤10 min cache lag) | current (≤10 min cache lag) |
 | Requirement: Windows/macOS/Linux | desktop Chrome or Edge | Firefox 95+ | macOS Safari 16.4+ / iOS 18.4+ |
 
 [More details](docs/web.md)

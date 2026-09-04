@@ -34,6 +34,7 @@ The **historical BCD floor** numbers show when browsers first implemented the fe
 * Serve the files with any static webserver.
 * `pnpm dev:web` runs the development server for the web entry.
 * `pnpm preview:web` launches a preview of the built output.
+* The web app is continuously deployed to GitHub Pages on every push to `main`; after each deploy, returning visitors may be served a cached version for up to 10 minutes.
 
 ## Limitations
 
