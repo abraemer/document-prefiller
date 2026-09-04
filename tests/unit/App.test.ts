@@ -125,6 +125,16 @@ const slotPassthrough = (tag: string) =>
     setup: (_, { slots }) => () => h(tag, slots.default?.()),
   })
 
+/**
+ * Tooltip passthrough: unlike slotPassthrough, renders BOTH the activator
+ * (with empty tooltip props bound) and the default slot, so warning
+ * tooltips in App.vue are visible and assertable in the mounted tree.
+ */
+const VTooltipStub = defineComponent({
+  setup: (_, { slots }) => () =>
+    h('v-tooltip', [slots.activator?.({ props: {} }), slots.default?.()]),
+})
+
 const RENDERED_STUBS = {
   VApp: slotPassthrough('v-app'),
   VMain: slotPassthrough('v-main'),
@@ -137,6 +147,7 @@ const RENDERED_STUBS = {
   VBtn: slotPassthrough('v-btn'),
   VIcon: slotPassthrough('v-icon'),
   VDivider: slotPassthrough('v-divider'),
+  VTooltip: VTooltipStub,
 }
 
 function mountApp() {
@@ -349,5 +360,62 @@ describe('App Component', () => {
     expect(dropZone.element.dispatchEvent(makeDragEvent('drop', ['dropped-item']))).toBe(true)
     await flushPromises()
     expect(api.folder.ingestDroppedItems).not.toHaveBeenCalled()
+  })
+
+  it('disables Refresh with a warning tooltip on the web-upload variant', async () => {
+    // Given: the snapshot tier (no live folder access — a rescan cannot see
+    // disk changes, so Refresh is meaningless)
+    const capabilities = makeCapabilities({
+      variant: 'web-upload',
+      startupScan: 'auto',
+      outputMode: 'download',
+      updater: false,
+    })
+    stubWindowApi(makeSettings(), capabilities)
+    const wrapper = mountApp()
+    await flushPromises()
+
+    // Then: the Refresh button is disabled and the snapshot warning tooltip
+    // (with its warning icon) is rendered next to it. The icon lookup is
+    // scoped to the button's flex wrapper — the hidden warning snackbar
+    // elsewhere in the tree uses the same mdi-alert icon.
+    const refreshButton = findButton(wrapper, 'Refresh')
+    expect(refreshButton.attributes('disabled')).toBeDefined()
+    expect(
+      refreshButton.element.parentElement?.querySelector('v-icon[icon="mdi-alert"]')
+    ).not.toBeNull()
+    expect(wrapper.text()).toContain(
+      "This browser keeps a local snapshot of your documents that doesn't update automatically. To load new or changed documents, click 'Change' and re-select the folder."
+    )
+  })
+
+  it('keeps Refresh enabled without a warning tooltip on the native variant', async () => {
+    // Given: native capabilities (default harness — live folder access)
+    stubWindowApi(makeSettings({ lastFolder: 'X' }))
+    const wrapper = mountApp()
+    await flushPromises()
+
+    // Then: Refresh is enabled and no snapshot warning exists
+    // (the passthrough stub renders the disabled prop as a raw attribute,
+    // so "enabled" shows up as the literal string "false"; the icon lookup
+    // is scoped to the button's wrapper to skip the hidden warning snackbar)
+    const refreshButton = findButton(wrapper, 'Refresh')
+    expect(refreshButton.attributes('disabled')).toBe('false')
+    expect(
+      refreshButton.element.parentElement?.querySelector('v-icon[icon="mdi-alert"]')
+    ).toBeNull()
+    expect(wrapper.text()).not.toContain('local snapshot of your documents')
+  })
+
+  it('renders the local-processing privacy note on all variants', async () => {
+    // Given: the native harness (note is variant-independent)
+    stubWindowApi(makeSettings())
+    const wrapper = mountApp()
+    await flushPromises()
+
+    // Then: the privacy caption is present in the main card
+    expect(wrapper.text()).toContain(
+      'All processing happens locally — your documents never leave this device.'
+    )
   })
 })
