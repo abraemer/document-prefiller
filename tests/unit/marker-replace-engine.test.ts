@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { replaceMarkersInDocumentXml } from '../../src/main/services/marker-replace-engine';
+import { replaceMarkersInDocumentXml } from '../../src/core/marker-replace-engine';
 import { DEFAULT_PREFIX } from '../../src/shared/constants';
 
 /** Wraps paragraph/table body XML in a minimal word/document.xml shell. */

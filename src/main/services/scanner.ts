@@ -19,7 +19,7 @@ import { parseDocxFile, DocxParseError } from '../utils/docx-parser.js';
 import {
   detectMarkers,
   MarkerDetectionError,
-} from '../utils/marker-detection.js';
+} from '../../core/marker-detection.js';
 
 /**
  * Scan a folder for .docx files and detect markers

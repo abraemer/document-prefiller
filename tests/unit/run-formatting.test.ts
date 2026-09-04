@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mergeRunFormatting } from '../../src/main/utils/run-formatting.js';
+import { mergeRunFormatting } from '../../src/core/run-formatting.js';
 
 /** Count matches of a global regex (must include the g flag). */
 function countMatches(haystack: string, pattern: RegExp): number {

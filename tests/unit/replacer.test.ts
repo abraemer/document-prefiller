@@ -8,7 +8,7 @@ import * as path from 'path';
 import JSZip from 'jszip';
 import { processDocumentsBatch, ReplacementError, type BatchProgress } from '../../src/main/services/replacer';
 import type { ReplacementRequest } from '../../src/shared/types/data-models';
-import { detectMarkers } from '../../src/main/utils/marker-detection';
+import { detectMarkers } from '../../src/core/marker-detection';
 import { parseDocxFile } from '../../src/main/utils/docx-parser';
 
 // Mock the file module with actual file copying

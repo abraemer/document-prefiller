@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import JSZip from 'jszip';
-import { parseParagraphs, paragraphText } from './docx-structure';
+import { parseParagraphs, paragraphText } from '../../core/docx-structure';
 
 /**
  * Custom error class for .docx parsing errors

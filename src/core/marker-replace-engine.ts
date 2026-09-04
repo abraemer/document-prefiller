@@ -27,15 +27,15 @@
  *   is copied verbatim, so entity references like &amp; never double-escape.
  */
 
-import { createMarkerRegex, isValidIdentifier } from '../utils/marker-detection';
+import { createMarkerRegex, isValidIdentifier } from './marker-detection';
 import {
   parseParagraphs,
   paragraphText,
   segmentsForSpan,
   type Paragraph,
   type TextSegment,
-} from '../utils/docx-structure';
-import { mergeRunFormatting } from '../utils/run-formatting';
+} from './docx-structure';
+import { mergeRunFormatting } from './run-formatting';
 
 /** An accepted (in-values, non-skipped) marker match within one paragraph. */
 interface AcceptedMatch {

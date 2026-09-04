@@ -8,7 +8,7 @@ import {
   paragraphText,
   segmentsForSpan,
   type Paragraph,
-} from '../../src/main/utils/docx-structure.js';
+} from '../../src/core/docx-structure.js';
 
 // Asserts the position round-trip contract for every node: xml.slice(start, end) === raw.
 function expectPositionsRoundTrip(xml: string, paragraphs: Paragraph[]): void {

@@ -9,7 +9,7 @@ import JSZip from 'jszip';
 import type { ReplacementResult, ReplacementRequest } from '../../shared/types/data-models';
 import { copyDocxFiles, type CopyProgress } from '../utils/file';
 import { DOCUMENT_EXTENSION } from '../../shared/constants';
-import { replaceMarkersInDocumentXml } from './marker-replace-engine';
+import { replaceMarkersInDocumentXml } from '../../core/marker-replace-engine';
 
 /**
  * Custom error class for replacement operations
