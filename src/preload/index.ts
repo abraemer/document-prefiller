@@ -18,6 +18,7 @@ import type {
   UpdaterStateResponse,
   UpdateStatusEvent,
   UpdaterActionResponse,
+  PlatformAPI,
 } from '../shared/types'
 
 /**
@@ -271,8 +272,12 @@ const eventAPI = {
  * 
  * The renderer can access these APIs via window.api
  * Example: await window.api.folder.scanFolder('/path/to/folder')
+ *
+ * The `satisfies PlatformAPI` binding checks conformance against the shared
+ * contract (src/shared/types/platform.ts) — the same contract the web
+ * variant's shim implements — while preserving the literal's inferred types.
  */
-contextBridge.exposeInMainWorld('api', {
+const api = {
   folder: folderAPI,
   document: documentAPI,
   settings: settingsAPI,
@@ -280,28 +285,19 @@ contextBridge.exposeInMainWorld('api', {
   window: windowAPI,
   events: eventAPI,
   updater: updaterAPI,
-})
+  capabilities: {
+    variant: 'native',
+    startupScan: 'auto',
+    outputMode: 'disk',
+    updater: true,
+  },
+} satisfies PlatformAPI
+
+contextBridge.exposeInMainWorld('api', api)
 
 /**
- * Type definitions for the exposed API
- * These will be available in the renderer process
+ * The Window interface augmentation for window.api lives in
+ * src/shared/types/window-api.d.ts (declaring `api: PlatformAPI`) — the
+ * single repo-wide Window declaration; a second augmentation anywhere
+ * else conflicts with it (TS2717).
  */
-export type ElectronAPI = {
-  folder: typeof folderAPI
-  document: typeof documentAPI
-  settings: typeof settingsAPI
-  saveFile: typeof saveFileAPI
-  window: typeof windowAPI
-  events: typeof eventAPI
-  updater: typeof updaterAPI
-}
-
-/**
- * Extend the Window interface to include the API
- * This provides TypeScript autocomplete in the renderer process
- */
-declare global {
-  interface Window {
-    api: ElectronAPI
-  }
-}
