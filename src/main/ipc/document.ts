@@ -12,6 +12,7 @@ import type {
 } from '../../shared/types';
 import { processDocumentsBatch, type BatchProgress } from '../services/replacer';
 import { scanFolder } from '../services/scanner';
+import { markersToValues } from '../../core/scan-support';
 import { DEFAULT_PREFIX } from '../../shared/constants';
 import * as path from 'path';
 
@@ -46,21 +47,7 @@ export function registerDocumentHandlers() {
       }
 
       // Convert markers to replacement values
-      const values: Record<string, string> = {};
-      let prefix = DEFAULT_PREFIX;
-
-      for (const marker of markers) {
-        if (!marker.enabled) {
-          continue; // Skip disabled markers
-        }
-
-        // Use the first marker's prefix
-        if (prefix === DEFAULT_PREFIX && marker.prefix) {
-          prefix = marker.prefix;
-        }
-
-        values[marker.id] = marker.value;
-      }
+      const { values, prefix } = markersToValues(markers);
 
       // Use provided output folder or default to 'output' subdirectory
       const outputFolder = requestedOutputFolder || path.join(folderPath, 'output');

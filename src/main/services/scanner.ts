@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ScanResult, Marker } from '../../shared/types/data-models.js';
+import type { ScanResult } from '../../shared/types/data-models.js';
 import {
   DOCUMENT_EXTENSION,
   DEFAULT_PREFIX,
@@ -13,13 +13,13 @@ import {
   FOLDER_NOT_FOUND_ERROR,
   MAX_SCAN_DOCUMENTS,
   MAX_DOCUMENT_SIZE,
-  MAX_UNIQUE_MARKERS,
 } from '../../shared/constants/index.js';
 import { parseDocxFile, DocxParseError } from '../utils/docx-parser.js';
 import {
   detectMarkers,
   MarkerDetectionError,
 } from '../../core/marker-detection.js';
+import { dedupeMarkers } from '../../core/scan-support.js';
 
 /**
  * Scan a folder for .docx files and detect markers
@@ -66,7 +66,8 @@ export async function scanFolder(
     try {
       const text = await parseDocxFile(filePath);
       const markers = detectMarkers(text, prefix);
-      documentMarkers.set(filePath, markers);
+      // dedupeMarkers uses map keys as document names — key by file name.
+      documentMarkers.set(path.basename(filePath), markers);
     } catch (error) {
       let errorMessage = 'Unknown error';
       if (error instanceof DocxParseError) {
@@ -84,7 +85,7 @@ export async function scanFolder(
   }
 
   // Deduplicate markers across all documents
-  const markers = deduplicateMarkers(documentMarkers, prefix);
+  const markers = dedupeMarkers(documentMarkers, prefix);
 
   // Get document names (relative paths)
   const documents = docxFiles.map((filePath) => path.basename(filePath));
@@ -141,58 +142,4 @@ async function findDocxFiles(folderPath: string): Promise<string[]> {
       resolve(docxFiles);
     });
   });
-}
-
-/**
- * Deduplicate markers across all documents and create Marker objects
- *
- * @param documentMarkers - Map of file paths to their detected markers
- * @param prefix - Marker prefix used
- * @returns Array of deduplicated Marker objects
- */
-function deduplicateMarkers(
-  documentMarkers: Map<string, string[]>,
-  prefix: string
-): Marker[] {
-  const markerMap: Map<string, Marker> = new Map();
-
-  for (const [filePath, markers] of documentMarkers.entries()) {
-    const fileName = path.basename(filePath);
-
-    for (const identifier of markers) {
-      const fullMarker = `${prefix}${identifier}`;
-
-      if (markerMap.has(identifier)) {
-        // Add this document to existing marker
-        const existingMarker = markerMap.get(identifier);
-        if (existingMarker && !existingMarker.documents.includes(fileName)) {
-          existingMarker.documents.push(fileName);
-        }
-      } else {
-        // Create new marker
-        const marker: Marker = {
-          identifier,
-          fullMarker,
-          value: '',
-          status: 'new',
-          documents: [fileName],
-        };
-        markerMap.set(identifier, marker);
-      }
-    }
-  }
-
-  // Convert map to array
-  const markers = Array.from(markerMap.values());
-
-  // Validate marker count
-  if (markers.length > MAX_UNIQUE_MARKERS) {
-    console.warn(
-      `Too many unique markers found (${markers.length}). Maximum allowed is ${MAX_UNIQUE_MARKERS}.`
-    );
-    // Return only the first MAX_UNIQUE_MARKERS markers
-    return markers.slice(0, MAX_UNIQUE_MARKERS);
-  }
-
-  return markers;
 }
