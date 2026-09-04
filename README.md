@@ -5,6 +5,15 @@ A desktop application for prefilling Microsoft Word (.docx) documents with repla
 
 <p align="center"><img src="docs/tutorial/assets/demo.gif" alt="Document Prefiller workflow demo" width="480"></p>
 
+## Try it on the web
+
+You can use Document Prefiller directly in your browser at <https://document-prefiller.braemer.me>. No installation is required.
+
+> **Warning:** Functionality in the web app is a bit *browser-dependent*. Full live‑folder access works best in Chrome or Edge; other browsers operate from uploaded copies. The native desktop app provides more consistent behavior and additional features.
+
+For a quick comparison of capabilities, see the [Web app vs. native app](#web-app-vs-native-app) feature matrix below. To download the native application, use the same [latest release] link as below.
+
+
 ## Features
 
 - **Simple Document Scanning**: Automatically detects replacement markers in .docx files.
@@ -20,6 +29,8 @@ A desktop application for prefilling Microsoft Word (.docx) documents with repla
 
 Download the prebuilt binary from the [latest release](https://github.com/abraemer/document-prefiller/releases/latest) for your platform.
 
+You can also use the web app at https://document-prefiller.braemer.me as a zero‑install alternative.
+
 ## Quick start
 
 New to Document Prefiller? Walk through the **[step-by-step tutorial](docs/tutorial/README.md)** with ready-made example documents.
@@ -34,6 +45,20 @@ New to Document Prefiller? Walk through the **[step-by-step tutorial](docs/tutor
 To make your own templates, open an existing .docx in Word and type a marker such as `REPLACEME-NAME` wherever a value should be filled in later. When the app replaces markers it writes a copy of your template and inserts the plain replacement text only — the template's original formatting (styles, tables, images, etc.) is preserved.
 
 Example marker: `REPLACEME-NAME` – see the full marker format rules in the [markers reference](docs/markers.md).
+
+## Web app vs. native app
+
+| Native app | Chrome / Edge | Firefox | Safari & others |
+|---|---|---|---|
+| Open template folder: native dialog | live folder, File System Access | folder upload | folder upload |
+| Template source: your disk — always current | your disk — always current | browser copy (snapshot) | browser copy (snapshot) |
+| Disk edits visible after rescan: yes | yes | no — re-upload to sync | no — re-upload to sync |
+| Output delivery: written to an output folder, opened for you | ZIP download | ZIP download | ZIP download |
+| Saved values: .replacement-values.json in the folder | in the browser + inside the ZIP | in the browser + inside the ZIP | in the browser + inside the ZIP — first upload may miss the values file |
+| Auto-update: built-in | always current | always current | always current |
+| Requirement: Windows/macOS/Linux | desktop Chrome or Edge | Firefox 95+ | macOS Safari 16.4+ / iOS 18.4+ |
+
+[More details](docs/web.md)
 
 ## Documentation
 
