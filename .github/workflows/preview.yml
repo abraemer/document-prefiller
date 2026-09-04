@@ -70,13 +70,37 @@ jobs:
             preview-meta
           if-no-files-found: error
 
+  composite-available:
+    # Bootstrap-window probe: the publish-preview composite resolves from
+    # the main checkout in the jobs below, so it only exists once the PR
+    # that introduces it merges. Until then those jobs skip green with a
+    # notice instead of failing on the missing local action. API-based on
+    # purpose: no checkout, no workspace, nothing privileged.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
+    steps:
+      - name: Probe for the publish-preview composite on main
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/contents/.github/actions/publish-preview?ref=main" >/dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "publish-preview composite present on main"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::publish-preview composite is not on main yet; preview publishing starts once the preview PR merges"
+          fi
+
   publish:
     # Same-repo PRs only: fork events carry a read-only GITHUB_TOKEN that a
     # permissions block cannot elevate. The event_name guard keeps the
     # write token off fork events entirely; approved fork PRs publish
     # through the dedicated base-repo-context jobs below instead.
-    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
-    needs: build
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && needs.composite-available.outputs.ready == 'true'
+    needs: [build, composite-available]
     permissions:
       contents: write
       pull-requests: write
@@ -164,7 +188,8 @@ jobs:
     # a read-only GITHUB_TOKEN, so the local rm would succeed and the push
     # fail 403 — a RED job on every fork-PR close; fork folders are left
     # to the periodic prune instead.
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository && needs.composite-available.outputs.ready == 'true'
+    needs: composite-available
     permissions:
       contents: write
     runs-on: ubuntu-latest
