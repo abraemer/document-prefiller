@@ -150,7 +150,7 @@ jobs:
           cp -a "$RUNNER_TEMP/artifact/dist-web/." dist-web/
       - name: Publish approved fork preview folder
         if: env.LIVE_GATE_OK == 'true'
-        uses: ./.github/actions/publish-preview
+        uses: abraemer/document-prefiller/.github/actions/publish-preview@main
         with:
           # The GITHUB_ENV export from the derive step — validated numeric
           # there and re-validated by the composite's env contract.

@@ -177,7 +177,7 @@ jobs:
           mkdir -p dist-web
           cp -a "$RUNNER_TEMP/artifact/dist-web/." dist-web/
       - name: Publish PR preview folder
-        uses: ./.github/actions/publish-preview
+        uses: abraemer/document-prefiller/.github/actions/publish-preview@main
         with:
           # From the EVENT, never from the artifact manifest.
           pr-number: ${{ github.event.number }}
@@ -219,7 +219,7 @@ jobs:
             fi
           fi
       - name: Remove PR preview folder
-        uses: ./.github/actions/publish-preview
+        uses: abraemer/document-prefiller/.github/actions/publish-preview@main
         with:
           # From the EVENT, never from the artifact manifest.
           pr-number: ${{ github.event.number }}
@@ -350,7 +350,7 @@ jobs:
           cp -a "$RUNNER_TEMP/artifact/dist-web/." dist-web/
       - name: Publish approved fork preview folder
         if: env.ARTIFACT_READY == 'true'
-        uses: ./.github/actions/publish-preview
+        uses: abraemer/document-prefiller/.github/actions/publish-preview@main
         with:
           # From the EVENT, never from the artifact manifest.
           pr-number: ${{ github.event.pull_request.number }}
