@@ -118,21 +118,10 @@ export interface EventAPI {
 }
 
 /**
- * Electron API exposed to renderer
- */
-export interface ElectronAPI {
-  folder: FolderAPI;
-  document: DocumentAPI;
-  settings: SettingsAPI;
-  saveFile: SaveFileAPI;
-  window: WindowAPI;
-  events: EventAPI;
-}
-
-/**
  * The Window interface augmentation (window.api) is declared once in
- * src/preload/index.ts (typeof-precise); a second augmentation here
- * conflicted with it (TS2717) under vue-tsc 3.
+ * src/shared/types/window-api.d.ts (typed as the shared PlatformAPI);
+ * a second augmentation anywhere else conflicted with it (TS2717)
+ * under vue-tsc 3.
  */
 
 export {};
