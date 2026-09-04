@@ -9,7 +9,7 @@ A desktop application for prefilling Microsoft Word (.docx) documents with repla
 
 You can use Document Prefiller directly in your browser at <https://abraemer.github.io/document-prefiller/>. No installation is required.
 
-> **Warning:** Functionality in the web app is a bit *browser-dependent*. Full live‑folder access works best in Chrome or Edge; other browsers operate from uploaded copies. The native desktop app provides more consistent behavior and additional features.
+> **Warning:** Functionality in the web app is a bit *browser-dependent*. Full live-folder access works best in Chrome or Edge; other browsers operate from uploaded copies. The native desktop app provides more consistent behavior and additional features.
 
 For a quick comparison of capabilities, see the [Web app vs. native app](#web-app-vs-native-app) feature matrix below. To download the native application, use the same [latest release] link as below.
 
