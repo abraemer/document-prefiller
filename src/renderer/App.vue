@@ -27,41 +27,67 @@
                 <!-- Folder Selection Section -->
                 <v-row class="mb-4">
                   <v-col cols="12">
-                    <v-card
-                      variant="outlined"
+                    <!-- Drag-drop zone (web-upload variant; listeners are
+                         attached at mount only when the variant allows it) -->
+                    <div
+                      ref="folderDropRef"
+                      class="folder-drop-zone"
+                    >
+                      <v-card
+                        variant="outlined"
+                        class="mb-3"
+                      >
+                        <v-card-text>
+                          <v-row align="center">
+                            <v-col
+                              cols="12"
+                              sm="8"
+                            >
+                              <div class="text-subtitle-2 text-grey-darken-1 mb-1">
+                                Folder
+                              </div>
+                              <div class="text-body-1 text-truncate">
+                                {{ displayFolderName(currentFolder) || 'No folder selected' }}
+                              </div>
+                            </v-col>
+                            <v-col
+                              cols="12"
+                              sm="4"
+                              class="text-sm-right"
+                            >
+                              <v-btn
+                                color="primary"
+                                variant="elevated"
+                                prepend-icon="mdi-folder-open"
+                                block
+                                @click="handleSelectFolder"
+                              >
+                                Change
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-card-text>
+                      </v-card>
+                    </div>
+
+                    <!-- Reopen Banner (web gesture startup: scanning the last
+                         folder requires a user gesture, so it is deferred) -->
+                    <v-alert
+                      v-if="showReopenBanner"
+                      type="info"
+                      variant="tonal"
                       class="mb-3"
                     >
-                      <v-card-text>
-                        <v-row align="center">
-                          <v-col
-                            cols="12"
-                            sm="8"
-                          >
-                            <div class="text-subtitle-2 text-grey-darken-1 mb-1">
-                              Folder
-                            </div>
-                            <div class="text-body-1 text-truncate">
-                              {{ currentFolder || 'No folder selected' }}
-                            </div>
-                          </v-col>
-                          <v-col
-                            cols="12"
-                            sm="4"
-                            class="text-sm-right"
-                          >
-                            <v-btn
-                              color="primary"
-                              variant="elevated"
-                              prepend-icon="mdi-folder-open"
-                              block
-                              @click="handleSelectFolder"
-                            >
-                              Change
-                            </v-btn>
-                          </v-col>
-                        </v-row>
-                      </v-card-text>
-                    </v-card>
+                      The selected folder needs to be reopened to scan its documents.
+                      <v-btn
+                        color="primary"
+                        variant="elevated"
+                        class="ml-4"
+                        @click="handleReopenLast"
+                      >
+                        Reopen '{{ displayFolderName(currentFolder) }}'
+                      </v-btn>
+                    </v-alert>
 
                     <!-- Prefix Configuration -->
                     <v-card variant="outlined">
@@ -399,12 +425,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import type { Marker } from '@/shared/types';
+import type { Marker, SelectFolderResponse } from '@/shared/types';
 import { DEFAULT_PREFIX } from '@/shared/constants';
 import { useValidation } from './composables/useValidation';
 import { useMarkers } from './composables/useMarkers';
 import { useDocuments } from './composables/useDocuments';
 import { useSettings } from './composables/useSettings';
+import { usePlatform } from './composables/usePlatform';
 import MarkerList from './components/MarkerList.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
 
@@ -436,6 +463,11 @@ const {
   updateLastFolder,
   updateLastOutputFolder,
 } = useSettings();
+
+const {
+  capabilities,
+  displayFolderName,
+} = usePlatform();
 
 // ============================================================================
 // STATE
@@ -472,6 +504,13 @@ const confirmMessage = ref<string>('');
 const confirmTitle = ref<string>('');
 const confirmCallback = ref<(() => void) | null>(null);
 
+// Reopen banner state (web gesture startup)
+const showReopenBanner = ref<boolean>(false);
+
+// Folder drag-drop zone (web-upload variant; plain element so the ref is
+// the DOM node under both Vuetify and bare test mounts)
+const folderDropRef = ref<HTMLElement | null>(null);
+
 // Validation state
 const prefixValidationErrors = ref<string[]>([]);
 
@@ -501,6 +540,24 @@ const prefixRules = computed(() => {
 // ============================================================================
 
 /**
+ * Apply a folder selection result: set the current folder, reset the
+ * prefix, persist the choice, and scan. Shared by the folder button and
+ * the web drag-drop flow.
+ */
+async function applyFolderSelection(result: SelectFolderResponse): Promise<void> {
+  if (result.folderPath) {
+    currentFolder.value = result.folderPath;
+    markerPrefix.value = DEFAULT_PREFIX;
+
+    // Update settings with last folder
+    updateLastFolder(result.folderPath);
+
+    // Scan the folder for documents and markers
+    await scanFolder();
+  }
+}
+
+/**
  * Handle folder selection
  */
 async function handleSelectFolder(): Promise<void> {
@@ -511,21 +568,86 @@ async function handleSelectFolder(): Promise<void> {
 
     // Use IPC to select folder
     const result = await window.api.folder.selectFolder();
-    
-    if (result.folderPath) {
-      currentFolder.value = result.folderPath;
-      markerPrefix.value = DEFAULT_PREFIX;
-      
-      // Update settings with last folder
-      updateLastFolder(result.folderPath);
-      
-      // Scan the folder for documents and markers
-      await scanFolder();
-    }
+
+    await applyFolderSelection(result);
   } catch (error) {
     showError.value = true;
     errorTitle.value = 'Folder Selection Failed';
     errorMessage.value = error instanceof Error ? error.message : 'Failed to select folder. Please try again.';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+/**
+ * Reopen the last folder from the startup banner (web gesture startup).
+ * The adapter reports permission denial / a stale workspace as a null
+ * folderPath with an exact error string — surface it and abort before
+ * any scan.
+ */
+async function handleReopenLast(): Promise<void> {
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Reopening folder...';
+    showProgress.value = false;
+
+    const result = await window.api.folder.reopenLast?.();
+    if (!result || !result.folderPath) {
+      showError.value = true;
+      errorTitle.value = 'Folder Reopen Failed';
+      errorMessage.value = result?.error ?? 'Failed to reopen the last folder.';
+      return;
+    }
+
+    showReopenBanner.value = false;
+    currentFolder.value = result.folderPath;
+
+    // Scan the reopened folder
+    await scanFolder();
+
+    // Focus first marker input after scan
+    await focusFirstMarkerInput();
+  } catch (error) {
+    showError.value = true;
+    errorTitle.value = 'Folder Reopen Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to reopen the last folder.';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+/**
+ * Handle drag-over on the folder drop zone (web-upload variant).
+ * preventDefault is required for the browser to allow the drop.
+ */
+function handleFolderDragOver(event: DragEvent): void {
+  event.preventDefault();
+}
+
+/**
+ * Handle a dropped folder (web-upload variant): ingest the dropped items
+ * as a workspace and feed it through the same flow as the folder button.
+ */
+async function handleFolderDrop(event: DragEvent): Promise<void> {
+  event.preventDefault();
+  const items = event.dataTransfer?.items;
+  if (!items) {
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    loadingMessage.value = 'Importing folder...';
+    showProgress.value = false;
+
+    const result = await window.api.folder.ingestDroppedItems?.(items);
+    if (result) {
+      await applyFolderSelection(result);
+    }
+  } catch (error) {
+    showError.value = true;
+    errorTitle.value = 'Folder Import Failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to import the dropped folder. Please try again.';
   } finally {
     isLoading.value = false;
   }
@@ -604,6 +726,13 @@ async function handleReplace(): Promise<void> {
       return;
     }
 
+    // Download mode (web): output is a ZIP download — no output-folder
+    // dialog and no overwrite check apply.
+    if (capabilities.outputMode === 'download') {
+      await performReplacement(undefined);
+      return;
+    }
+
     // Show folder selection dialog
     const defaultPath = settings.value.lastOutputFolder;
     const folderResult = await window.api.folder.selectFolder(defaultPath);
@@ -652,7 +781,7 @@ async function handleReplace(): Promise<void> {
 /**
  * Perform the actual document replacement
  */
-async function performReplacement(outputFolder: string): Promise<void> {
+async function performReplacement(outputFolder?: string): Promise<void> {
   try {
     isLoading.value = true;
     loadingMessage.value = 'Replacing markers...';
@@ -679,12 +808,16 @@ async function performReplacement(outputFolder: string): Promise<void> {
     );
 
     if (result.success) {
-      // Save the selected output folder to settings
-      updateLastOutputFolder(outputFolder);
-      
+      // Save the selected output folder to settings (disk output only)
+      if (outputFolder !== undefined) {
+        updateLastOutputFolder(outputFolder);
+      }
+
       showSuccess.value = true;
       successTitle.value = 'Replacement Complete';
-      successMessage.value = `Successfully replaced markers in ${result.processed} document${result.processed !== 1 ? 's' : ''}.`;
+      successMessage.value = capabilities.outputMode === 'download'
+        ? `Downloaded ${result.processed} documents as a ZIP file`
+        : `Successfully replaced markers in ${result.processed} document${result.processed !== 1 ? 's' : ''}.`;
     } else {
       showError.value = true;
       errorTitle.value = 'Replacement Failed';
@@ -881,19 +1014,38 @@ onMounted(async () => {
   if (lastFolder) {
     currentFolder.value = lastFolder;
     markerPrefix.value = settings.value.preferences.defaultPrefix || DEFAULT_PREFIX;
-    
-    // Auto-scan the last folder
-    await scanFolder();
-    
-    // Focus first marker input after scan
-    await focusFirstMarkerInput();
+
+    if (capabilities.startupScan === 'gesture') {
+      // Gesture startup (web): scanning the last folder requires a user
+      // gesture (permission regrant) — defer to the reopen banner with
+      // no auto-scan and no error UI on cold start.
+      showReopenBanner.value = true;
+    } else {
+      // Auto-scan the last folder
+      await scanFolder();
+
+      // Focus first marker input after scan
+      await focusFirstMarkerInput();
+    }
   }
-  
+
+  // Attach folder drag-drop listeners (web-upload variant only)
+  if (capabilities.variant === 'web-upload') {
+    folderDropRef.value?.addEventListener('dragover', handleFolderDragOver);
+    folderDropRef.value?.addEventListener('drop', handleFolderDrop);
+  }
+
   // Add global keyboard event listener
   window.addEventListener('keydown', handleGlobalKeydown);
 });
 
 onUnmounted(() => {
+  // Remove folder drag-drop listeners (web-upload variant only)
+  if (capabilities.variant === 'web-upload') {
+    folderDropRef.value?.removeEventListener('dragover', handleFolderDragOver);
+    folderDropRef.value?.removeEventListener('drop', handleFolderDrop);
+  }
+
   // Remove global keyboard event listener
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
