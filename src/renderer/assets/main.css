@@ -1,7 +1,22 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/*
+ * Vuetify 4 ships its styles inside CSS cascade layers, and unlayered author
+ * styles beat every layer regardless of specificity. A bare `* { margin: 0;
+ * padding: 0 }` therefore silently zeroed every Vuetify padding/margin rule
+ * and utility class (py-*, mb-*, card/chip/button padding...), collapsing the
+ * whole layout. Declaring the layer order here — this file is imported before
+ * 'vuetify/styles' in both renderer entries — and moving the reset into the
+ * lowest layer restores the v3 behaviour: the reset still zeroes UA margins
+ * (author origin beats user-agent origin), while Vuetify's layered rules and
+ * utilities apply normally on top of it.
+ */
+@layer app-reset, vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, vuetify-final;
+
+@layer app-reset {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {
