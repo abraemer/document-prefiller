@@ -9,9 +9,9 @@ config.global.mocks = {
       thresholds: {
         xs: 0,
         sm: 600,
-        md: 960,
-        lg: 1280,
-        xl: 1920,
+        md: 840,
+        lg: 1145,
+        xl: 1545,
       },
     },
     theme: {

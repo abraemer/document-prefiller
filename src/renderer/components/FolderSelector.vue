@@ -4,15 +4,15 @@
     class="folder-selector"
   >
     <v-card-text>
-      <v-row align="center">
+      <v-row class="align-center">
         <v-col
           cols="12"
           sm="8"
         >
-          <div class="text-subtitle-2 text-grey-darken-1 mb-1">
+          <div class="text-title-small text-grey-darken-1 mb-1">
             Folder
           </div>
-          <div class="text-body-1 text-truncate folder-path">
+          <div class="text-body-large text-truncate folder-path">
             {{ currentFolder || 'No folder selected' }}
           </div>
         </v-col>

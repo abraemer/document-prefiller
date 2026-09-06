@@ -38,6 +38,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: [
+      'vuetify/components/VOverlay',
+      'vuetify/components/VDialog',
+      'vuetify/components/VMenu',
+      'vuetify/components/VSelect',
+      'vuetify/components/VTooltip',
+    ],
+  },
   plugins: [vue(), renameWebEntryToIndex()],
   build: {
     outDir: path.resolve(__dirname, 'dist-web'),

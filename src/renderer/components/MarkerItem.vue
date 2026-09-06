@@ -50,7 +50,7 @@
       />
 
       <div
-        class="text-caption text-grey-darken-1 text-right flex-shrink-0"
+        class="text-body-small text-grey-darken-1 text-right flex-shrink-0"
         style="min-width: 80px;"
       >
         <div>{{ marker.documents.length }} document{{ marker.documents.length !== 1 ? 's' : '' }}</div>
@@ -63,7 +63,7 @@
               class="mt-1"
             />
           </template>
-          <div class="text-caption">
+          <div class="text-body-small">
             {{ marker.documents.join(', ') }}
           </div>
         </v-tooltip>
