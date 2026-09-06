@@ -9,7 +9,7 @@
         icon="mdi-format-list-bulleted"
         class="mr-2"
       />
-      <span class="text-h6">Detected Markers</span>
+      <span class="text-title-large">Detected Markers</span>
       <v-spacer />
       <v-chip
         v-if="saving"
@@ -73,10 +73,10 @@
           color="grey-lighten-1"
           class="mb-4"
         />
-        <p class="text-body-1 text-grey-darken-1 mb-2">
+        <p class="text-body-large text-grey-darken-1 mb-2">
           No markers detected
         </p>
-        <p class="text-body-2 text-grey-darken-2">
+        <p class="text-body-medium text-grey-darken-2">
           Select a folder containing .docx files to scan for markers
         </p>
       </div>
@@ -103,7 +103,7 @@
       v-if="markers.length > 0 && !noCard"
       class="pa-3"
     >
-      <div class="d-flex align-center gap-4 text-caption">
+      <div class="d-flex align-center gap-4 text-body-small">
         <div class="d-flex align-center">
           <v-icon
             icon="mdi-check"
@@ -172,10 +172,10 @@
           color="grey-lighten-1"
           class="mb-4"
         />
-        <p class="text-body-1 text-grey-darken-1 mb-2">
+        <p class="text-body-large text-grey-darken-1 mb-2">
           No markers detected
         </p>
-        <p class="text-body-2 text-grey-darken-2">
+        <p class="text-body-medium text-grey-darken-2">
           Select a folder containing .docx files to scan for markers
         </p>
       </div>

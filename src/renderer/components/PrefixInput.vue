@@ -257,13 +257,13 @@ defineExpose({
   margin-bottom: 0;
 }
 
-/* Style the prepend icon */
-.prefix-input :deep(.v-input__prepend) {
+/* Style the prepend icon (v4: prepend-inner renders in .v-field__prepend-inner) */
+.prefix-input :deep(.v-field__prepend-inner) {
   color: #1976D2;
 }
 
-/* Style the clear button */
-.prefix-input :deep(.v-input__append-inner) {
+/* Style the clear button (v4: append area renders as .v-field__append-inner) */
+.prefix-input :deep(.v-field__append-inner) {
   align-items: center;
 }
 

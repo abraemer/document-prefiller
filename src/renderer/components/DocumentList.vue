@@ -32,7 +32,7 @@
               size="32"
               class="mb-2"
             />
-            <div class="text-body-2 text-grey-darken-1">
+            <div class="text-body-medium text-grey-darken-1">
               Loading documents...
             </div>
           </v-list-item-title>
@@ -63,10 +63,10 @@
               size="48"
               class="mb-2"
             />
-            <div class="text-body-1">
+            <div class="text-body-large">
               No documents found
             </div>
-            <div class="text-body-2 text-grey-darken-1 mt-1">
+            <div class="text-body-large text-grey-darken-1 mt-1">
               Select a folder containing .docx files
             </div>
           </v-list-item-title>
@@ -90,7 +90,7 @@
               color="primary"
             />
           </template>
-          <v-list-item-title class="text-body-1 document-name">
+          <v-list-item-title class="text-body-large document-name">
             {{ document }}
           </v-list-item-title>
         </v-list-item>

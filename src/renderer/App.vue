@@ -2,10 +2,7 @@
   <v-app>
     <v-main>
       <v-container class="fill-height">
-        <v-row
-          justify="center"
-          class="fill-height"
-        >
+        <v-row class="fill-height justify-center">
           <v-col
             cols="12"
             md="10"
@@ -14,7 +11,7 @@
           >
             <v-card class="elevation-2 fill-height d-flex flex-column">
               <!-- Header -->
-              <v-card-title class="text-h4 text-center py-4 primary white--text">
+              <v-card-title class="text-headline-large text-center py-4 bg-primary text-white">
                 <v-icon
                   icon="mdi-file-document-edit"
                   size="large"
@@ -38,15 +35,15 @@
                         class="mb-3"
                       >
                         <v-card-text>
-                          <v-row align="center">
+                          <v-row class="align-center">
                             <v-col
                               cols="12"
                               sm="8"
                             >
-                              <div class="text-subtitle-2 text-grey-darken-1 mb-1">
+                              <div class="text-title-small text-grey-darken-1 mb-1">
                                 Folder
                               </div>
-                              <div class="text-body-1 text-truncate">
+                              <div class="text-body-large text-truncate">
                                 {{ displayFolderName(currentFolder) || 'No folder selected' }}
                               </div>
                             </v-col>
@@ -92,12 +89,12 @@
                     <!-- Prefix Configuration -->
                     <v-card variant="outlined">
                       <v-card-text>
-                        <v-row align="center">
+                        <v-row class="align-center">
                           <v-col
                             cols="12"
                             sm="8"
                           >
-                            <div class="text-subtitle-2 text-grey-darken-1 mb-1">
+                            <div class="text-title-small text-grey-darken-1 mb-1">
                               Marker Prefix
                             </div>
                             <v-text-field
@@ -227,7 +224,7 @@
                                 color="primary"
                               />
                             </template>
-                            <v-list-item-title class="text-body-1">
+                            <v-list-item-title class="text-body-large">
                               {{ doc.name }}
                             </v-list-item-title>
                           </v-list-item>
@@ -265,7 +262,7 @@
                 </v-row>
 
                 <!-- Privacy note -->
-                <div class="text-center text-caption text-grey-darken-1 mt-3">
+                <div class="text-center text-body-small text-grey-darken-1 mt-3">
                   <v-icon
                     icon="mdi-lock"
                     size="x-small"
@@ -297,18 +294,18 @@
           color="primary"
           class="mb-4"
         />
-        <div class="text-h6 mb-2">
+        <div class="text-title-large mb-2">
           {{ loadingMessage }}
         </div>
         <div
           v-if="showProgress"
-          class="text-body-2 text-grey-darken-1"
+          class="text-body-medium text-grey-darken-1"
         >
           {{ progressDetails }}
         </div>
         <div
           v-if="showProgress"
-          class="text-h5 mt-2 primary--text"
+          class="text-headline-small mt-2 text-primary"
         >
           {{ progressValue }}%
         </div>
@@ -331,7 +328,7 @@
           <div class="font-weight-medium">
             {{ errorTitle }}
           </div>
-          <div class="text-caption">
+          <div class="text-body-small">
             {{ errorMessage }}
           </div>
         </div>
@@ -363,7 +360,7 @@
           <div class="font-weight-medium">
             {{ successTitle }}
           </div>
-          <div class="text-caption">
+          <div class="text-body-small">
             {{ successMessage }}
           </div>
         </div>
@@ -395,7 +392,7 @@
           <div class="font-weight-medium">
             {{ warningTitle }}
           </div>
-          <div class="text-caption">
+          <div class="text-body-small">
             {{ warningMessage }}
           </div>
         </div>
@@ -418,7 +415,7 @@
       persistent
     >
       <v-card>
-        <v-card-title class="text-h6">
+        <v-card-title class="text-title-large">
           <v-icon
             icon="mdi-alert-circle-outline"
             color="warning"
@@ -426,7 +423,7 @@
           />
           {{ confirmTitle }}
         </v-card-title>
-        <v-card-text class="text-body-1">
+        <v-card-text class="text-body-large">
           {{ confirmMessage }}
         </v-card-text>
         <v-card-actions>
