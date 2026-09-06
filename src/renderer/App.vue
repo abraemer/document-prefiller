@@ -22,7 +22,7 @@
 
               <v-card-text class="flex-grow-1 d-flex flex-column">
                 <!-- Folder Selection Section -->
-                <v-row class="mb-4">
+                <v-row class="mb-4 mt-4">
                   <v-col cols="12">
                     <!-- Drag-drop zone (web-upload variant; listeners are
                          attached at mount only when the variant allows it) -->
