@@ -23,7 +23,7 @@ The Document Prefiller is a desktop GUI application designed to streamline the p
 - **TypeScript**: Primary language for type safety and better developer experience
 - **Vue.js 3**: Progressive JavaScript framework for building the user interface
 - **Electron**: Framework for building cross-platform desktop applications
-- **Vuetify 3**: Material Design component library for Vue.js
+- **Vuetify 4**: Material Design component library for Vue.js
 
 ### 2.2 Build and Development Tools
 - **Vite**: Fast build tool and development server

@@ -29,7 +29,7 @@ Everything stays local. Your documents are never uploaded to any server — ther
 - **Value Persistence**: Save and load replacement values between sessions.
 - **Window State Memory**: Remembers window size, position, and last used folder.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
-- **Clean UI**: Built with Vue.js 3 and Vuetify 3 for a modern, responsive interface.
+- **Clean UI**: Built with Vue.js 3 and Vuetify 4 for a modern, responsive interface.
 - **Automatic Updates**: The app checks GitHub for new versions at launch.
 
 ## Installation
