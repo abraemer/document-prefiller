@@ -113,7 +113,7 @@ pnpm test:ui
 
 - **[Electron](https://www.electronjs.org/)**: Cross-platform desktop application framework
 - **[Vue.js 3](https://vuejs.org/)**: Progressive JavaScript framework
-- **[Vuetify 3](https://vuetifyjs.com/)**: Material Design component library
+- **[Vuetify 4](https://vuetifyjs.com/)**: Material Design component library
 - **TypeScript**: Type-safe JavaScript
 - **[Vite](https://vitejs.dev/)**: Fast build tool and dev server
 - **Vitest**: Unit testing framework
