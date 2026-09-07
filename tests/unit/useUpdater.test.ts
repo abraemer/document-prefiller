@@ -172,6 +172,41 @@ describe('useUpdater composable: event-driven dialog states', () => {
     expect(updaterState?.errorMessage.value).toBe('network gone')
   })
 
+  it('keeps the offered version when a version-less downloading broadcast arrives', async () => {
+    // Given: version 9.9.9 is offered
+    mountUpdater()
+    await flushPromises()
+    statusCallback({ status: 'available', version: '9.9.9', suggestedAction: 'install' })
+
+    // When: the downloading broadcast arrives with no version field (main sends none)
+    statusCallback({ status: 'downloading', progress: 25 })
+    await flushPromises()
+
+    // Then: the downloading card still names the offered version
+    expect(updaterState?.dialogState.value).toBe('downloading')
+    expect(updaterState?.version.value).toBe('9.9.9')
+  })
+
+  it('opens the changelog for the offered version after an error broadcast and Back', async () => {
+    // Given: a download of 9.9.9 fails via the error broadcast
+    mountUpdater()
+    await flushPromises()
+    statusCallback({ status: 'available', version: '9.9.9', suggestedAction: 'install' })
+    statusCallback({ status: 'downloading', progress: 10 })
+    statusCallback({ status: 'error', error: 'network gone' })
+    await flushPromises()
+    expect(updaterState?.dialogState.value).toBe('download-error')
+
+    // When: the user clicks Back and then View changelog
+    updaterState?.backToOffer()
+    await updaterState?.openChangelog()
+
+    // Then: the offered release's page is requested — openReleasesPage('')
+    // would dead-end in main's Invalid version guard
+    expect(updaterState?.dialogState.value).toBe('offer')
+    expect(window.api.updater.openReleasesPage).toHaveBeenCalledWith('9.9.9')
+  })
+
   it('stays hidden for an error broadcast while idle (startup-check errors stay invisible)', async () => {
     // Given: mounted with no dialog
     mountUpdater()

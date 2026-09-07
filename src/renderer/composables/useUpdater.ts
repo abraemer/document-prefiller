@@ -84,7 +84,10 @@ export function useUpdater() {
    */
   function applyEvent(event: UpdateStatusEvent): void {
     status.value = event.status;
-    version.value = event.version ?? '';
+    // Version-less broadcasts ('downloading', 'error') must not erase the
+    // offered version — the downloading display and the Back-to-offer
+    // changelog both depend on it.
+    version.value = event.version ?? version.value;
     progress.value = event.progress ?? 0;
     suggestedAction.value = event.suggestedAction ?? null;
 
