@@ -30,6 +30,7 @@ const { autoUpdaterMock, listeners } = vi.hoisted(() => {
     autoDownload: undefined as boolean | undefined,
     autoInstallOnAppQuit: undefined as boolean | undefined,
     checkForUpdates: vi.fn(),
+    downloadUpdate: vi.fn(),
     quitAndInstall: vi.fn(),
     on: vi.fn((event: string, cb: (info?: unknown) => void) => {
       listeners[event] = cb
@@ -41,6 +42,19 @@ const { autoUpdaterMock, listeners } = vi.hoisted(() => {
 // The service default-imports electron-updater (CJS getter-export interop),
 // so the mock must expose it under `default`.
 vi.mock('electron-updater', () => ({ default: { autoUpdater: autoUpdaterMock } }))
+
+const updaterStoreState = vi.hoisted(() => ({ skippedVersion: undefined as string | undefined }))
+
+vi.mock('electron-store', () => ({
+  default: class {
+    get(key: 'skippedVersion'): string | undefined {
+      return updaterStoreState[key]
+    }
+    set(key: 'skippedVersion', value: string): void {
+      updaterStoreState[key] = value
+    }
+  },
+}))
 
 function setPlatform(platform: string) {
   Object.defineProperty(process, 'platform', { value: platform })
@@ -67,10 +81,13 @@ describe('Updater Service', () => {
     electronMock.app.isPackaged = false
     autoUpdaterMock.autoDownload = undefined
     autoUpdaterMock.autoInstallOnAppQuit = undefined
-    // checkForUpdates and openExternal have no baseline implementation;
-    // reset so a rejection set by an earlier case cannot leak into this one
+    // checkForUpdates, downloadUpdate and openExternal have no baseline
+    // implementation; reset so a rejection set by an earlier case cannot
+    // leak into this one
     autoUpdaterMock.checkForUpdates.mockReset()
+    autoUpdaterMock.downloadUpdate.mockReset()
     electronMock.shell.openExternal.mockReset()
+    updaterStoreState.skippedVersion = undefined
   })
 
   afterEach(() => {
@@ -100,25 +117,25 @@ describe('Updater Service', () => {
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
   })
 
-  it('auto-downloads on win32 and broadcasts a downloaded update', async () => {
+  it('offers install on win32 without auto-downloading', async () => {
     // Given: packaged win32 app
     electronMock.app.isPackaged = true
     setPlatform('win32')
     const updater = await import('../../src/main/services/updater')
 
-    // When: initialized, then an update finishes downloading
+    // When: initialized, then an update becomes available
     updater.initUpdater()
-    listeners['update-downloaded']({ version: '9.9.9' })
+    listeners['update-available']({ version: '9.9.9' })
 
-    // Then: autoDownload on, broadcast carries version + restart action
-    expect(autoUpdaterMock.autoDownload).toBe(true)
+    // Then: nothing downloads on its own and the offer suggests installing
+    expect(autoUpdaterMock.autoDownload).toBe(false)
     expect(lastBroadcast()).toEqual([
       IPC_CHANNELS.UPDATER_STATUS,
-      { status: 'downloaded', version: '9.9.9', suggestedAction: 'restart' },
+      { status: 'available', version: '9.9.9', suggestedAction: 'install' },
     ])
   })
 
-  it('never auto-downloads on darwin and suggests opening the releases page', async () => {
+  it('suggests opening the releases page on darwin', async () => {
     // Given: packaged darwin app
     electronMock.app.isPackaged = true
     setPlatform('darwin')
@@ -133,6 +150,44 @@ describe('Updater Service', () => {
     expect(lastBroadcast()).toEqual([
       IPC_CHANNELS.UPDATER_STATUS,
       { status: 'available', version: '9.9.9', suggestedAction: 'open-page' },
+    ])
+  })
+
+  it('suppresses the offer for a version the user has skipped', async () => {
+    // Given: packaged win32 app where the user skipped 9.9.9
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    updaterStoreState.skippedVersion = '9.9.9'
+    const updater = await import('../../src/main/services/updater')
+
+    // When: the skipped version is detected again
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+
+    // Then: the broadcast carries no suggestedAction — the renderer hides
+    // suggestion-less events, so 9.9.9 is never re-offered
+    expect(lastBroadcast()).toStrictEqual([
+      IPC_CHANNELS.UPDATER_STATUS,
+      { status: 'available', version: '9.9.9' },
+    ])
+  })
+
+  it('suppresses a replayed update-downloaded for a skipped version', async () => {
+    // Given: packaged win32 app where 9.9.9 was skipped; electron-updater
+    // replays a cached update-downloaded on a later launch
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    updaterStoreState.skippedVersion = '9.9.9'
+    const updater = await import('../../src/main/services/updater')
+
+    // When: the cached download is replayed
+    updater.initUpdater()
+    listeners['update-downloaded']({ version: '9.9.9' })
+
+    // Then: no restart is suggested for the skipped version
+    expect(lastBroadcast()).toStrictEqual([
+      IPC_CHANNELS.UPDATER_STATUS,
+      { status: 'downloaded', version: '9.9.9' },
     ])
   })
 
@@ -158,6 +213,126 @@ describe('Updater Service', () => {
     // Then: install is dispatched
     expect(accepted).toEqual({ success: true })
     expect(autoUpdaterMock.quitAndInstall).toHaveBeenCalled()
+  })
+
+  it('downloads on explicit request and broadcasts a downloading status', async () => {
+    // Given: packaged win32 app with an offered update
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+
+    // When: the user explicitly requests the download
+    const result = await updater.downloadUpdate()
+
+    // Then: the download is dispatched and renderers see 'downloading'
+    expect(result).toEqual({ success: true })
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalled()
+    expect(lastBroadcast()).toEqual([IPC_CHANNELS.UPDATER_STATUS, { status: 'downloading' }])
+  })
+
+  it('refuses to download on darwin', async () => {
+    // Given: packaged darwin app with an offered update
+    electronMock.app.isPackaged = true
+    setPlatform('darwin')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+
+    // When: download is requested anyway
+    const result = await updater.downloadUpdate()
+
+    // Then: it fails without touching the downloader
+    expect(result).toEqual({
+      success: false,
+      error: 'Download & install is not supported on macOS',
+    })
+    expect(autoUpdaterMock.downloadUpdate).not.toHaveBeenCalled()
+  })
+
+  it('refuses to download when no update was ever offered', async () => {
+    // Given: packaged win32 app with no offer on record
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+
+    // When: download is requested
+    const result = await updater.downloadUpdate()
+
+    // Then: it fails without touching the downloader
+    expect(result).toEqual({ success: false, error: 'No update available to download' })
+    expect(autoUpdaterMock.downloadUpdate).not.toHaveBeenCalled()
+  })
+
+  it('degrades a failing download to an error broadcast and failed response', async () => {
+    // Given: packaged win32 app with an offered update whose download rejects
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    autoUpdaterMock.downloadUpdate.mockRejectedValue(new Error('dl failed'))
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+
+    // When: the user requests the download
+    const result = await updater.downloadUpdate()
+
+    // Then: the failure is broadcast and converted, never thrown
+    expect(result).toEqual({ success: false, error: 'dl failed' })
+    expect(lastBroadcast()).toEqual([
+      IPC_CHANNELS.UPDATER_STATUS,
+      { status: 'error', error: 'dl failed' },
+    ])
+  })
+
+  it('still downloads after an updater error', async () => {
+    // Given: packaged win32 app whose offered update later hit an error
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+    listeners['error'](new Error('boom'))
+
+    // When: the user retries the download
+    const result = await updater.downloadUpdate()
+
+    // Then: the retry is accepted — the guard keys off the offered
+    // version, never off lastEvent.status (which the error overwrote)
+    expect(result).toEqual({ success: true })
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalled()
+  })
+
+  it('persists the skipped version on request', async () => {
+    // Given: packaged win32 app with an offered update
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+    listeners['update-available']({ version: '9.9.9' })
+
+    // When: the user skips this version
+    const result = await updater.skipVersion()
+
+    // Then: the skip is persisted for future sessions
+    expect(result).toEqual({ success: true })
+    expect(updaterStoreState.skippedVersion).toBe('9.9.9')
+  })
+
+  it('refuses to skip when no update was ever offered', async () => {
+    // Given: packaged win32 app with no offer on record
+    electronMock.app.isPackaged = true
+    setPlatform('win32')
+    const updater = await import('../../src/main/services/updater')
+    updater.initUpdater()
+
+    // When: skip is requested
+    const result = await updater.skipVersion()
+
+    // Then: it fails without persisting anything
+    expect(result).toEqual({ success: false, error: 'No update available to skip' })
+    expect(updaterStoreState.skippedVersion).toBeUndefined()
   })
 
   it('broadcasts updater errors without throwing', async () => {
@@ -200,6 +375,32 @@ describe('Updater Service', () => {
     // Then: the rejection is converted, never thrown
     expect(result).toEqual({ success: false, error: 'no shell' })
     expect(electronMock.shell.openExternal).toHaveBeenCalledWith(RELEASES_URL)
+  })
+
+  it('opens the versioned release page when a specific version is requested', async () => {
+    // Given: the service (openReleasesPage works in any mode)
+    const updater = await import('../../src/main/services/updater')
+
+    // When: the changelog for a specific version is requested
+    const result = await updater.openReleasesPage('1.2.3')
+
+    // Then: the shell is directed at that release's tag page
+    expect(result).toEqual({ success: true })
+    expect(electronMock.shell.openExternal).toHaveBeenCalledWith(
+      'https://github.com/abraemer/document-prefiller/releases/tag/v1.2.3'
+    )
+  })
+
+  it('rejects an invalid version for the release page', async () => {
+    // Given: the service (openReleasesPage works in any mode)
+    const updater = await import('../../src/main/services/updater')
+
+    // When: a non-semver version is requested
+    const result = await updater.openReleasesPage('latest')
+
+    // Then: nothing is opened — malformed versions never reach the shell
+    expect(result).toEqual({ success: false, error: 'Invalid version' })
+    expect(electronMock.shell.openExternal).not.toHaveBeenCalled()
   })
 
   it('returns a pure state snapshot without network activity', async () => {
