@@ -9,7 +9,7 @@ import {
   type UpdaterStateResponse,
   type UpdaterActionResponse,
 } from '../../shared/types';
-import { getUpdateState, installUpdate, openReleasesPage } from '../services/updater';
+import { downloadUpdate, getUpdateState, installUpdate, openReleasesPage, skipVersion } from '../services/updater';
 
 /**
  * Register updater operation handlers
@@ -48,11 +48,11 @@ export function registerUpdaterHandlers(): void {
   });
 
   /**
-   * Handle open-releases-page request
+   * Handle download-update request
    */
-  ipcMain.handle(IPC_CHANNELS.UPDATER_OPEN_RELEASES, (): Promise<UpdaterActionResponse> => {
+  ipcMain.handle(IPC_CHANNELS.UPDATER_DOWNLOAD, (): Promise<UpdaterActionResponse> => {
     try {
-      return openReleasesPage();
+      return downloadUpdate();
     } catch (error) {
       // Sync throws only; convert to the async response shape
       return Promise.resolve({
@@ -61,4 +61,37 @@ export function registerUpdaterHandlers(): void {
       });
     }
   });
+
+  /**
+   * Handle skip-version request
+   */
+  ipcMain.handle(IPC_CHANNELS.UPDATER_SKIP_VERSION, (): Promise<UpdaterActionResponse> => {
+    try {
+      return skipVersion();
+    } catch (error) {
+      // Sync throws only; convert to the async response shape
+      return Promise.resolve({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Handle open-releases-page request
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.UPDATER_OPEN_RELEASES,
+    (_event, version?: string): Promise<UpdaterActionResponse> => {
+      try {
+        return openReleasesPage(version);
+      } catch (error) {
+        // Sync throws only; convert to the async response shape
+        return Promise.resolve({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
 }

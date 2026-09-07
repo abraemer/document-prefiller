@@ -17,6 +17,8 @@ vi.mock('electron', () => electronMock)
 const serviceMock = vi.hoisted(() => ({
   getUpdateState: vi.fn(),
   installUpdate: vi.fn(),
+  downloadUpdate: vi.fn(),
+  skipVersion: vi.fn(),
   openReleasesPage: vi.fn(),
 }))
 
@@ -29,7 +31,7 @@ const stateSnapshot = {
 } as const
 
 /** Map of channel -> captured handler callback registered by the unit under test */
-function capturedHandlers(): Map<string, (event: unknown) => unknown> {
+function capturedHandlers(): Map<string, (...args: unknown[]) => unknown> {
   return new Map(
     electronMock.ipcMain.handle.mock.calls.map((call) => [call[0] as string, call[1]])
   )
@@ -40,17 +42,21 @@ describe('Updater IPC Handlers', () => {
     vi.clearAllMocks()
     serviceMock.getUpdateState.mockReset()
     serviceMock.installUpdate.mockReset()
+    serviceMock.downloadUpdate.mockReset()
+    serviceMock.skipVersion.mockReset()
     serviceMock.openReleasesPage.mockReset()
   })
 
-  it('registers exactly three handlers on the updater channels', () => {
+  it('registers exactly five handlers on the updater channels', () => {
     // When: handlers are registered
     registerUpdaterHandlers()
 
-    // Then: one handler each for get-state, install, and open-releases
-    expect(electronMock.ipcMain.handle).toHaveBeenCalledTimes(3)
+    // Then: one handler each for get-state, install, download, skip-version, and open-releases
+    expect(electronMock.ipcMain.handle).toHaveBeenCalledTimes(5)
     expect(electronMock.ipcMain.handle).toHaveBeenCalledWith(IPC_CHANNELS.UPDATER_GET_STATE, expect.any(Function))
     expect(electronMock.ipcMain.handle).toHaveBeenCalledWith(IPC_CHANNELS.UPDATER_INSTALL, expect.any(Function))
+    expect(electronMock.ipcMain.handle).toHaveBeenCalledWith(IPC_CHANNELS.UPDATER_DOWNLOAD, expect.any(Function))
+    expect(electronMock.ipcMain.handle).toHaveBeenCalledWith(IPC_CHANNELS.UPDATER_SKIP_VERSION, expect.any(Function))
     expect(electronMock.ipcMain.handle).toHaveBeenCalledWith(IPC_CHANNELS.UPDATER_OPEN_RELEASES, expect.any(Function))
     expect(capturedHandlers().has(IPC_CHANNELS.UPDATER_STATUS)).toBe(false)
   })
@@ -83,6 +89,34 @@ describe('Updater IPC Handlers', () => {
     expect(serviceMock.installUpdate).toHaveBeenCalledOnce()
   })
 
+  it('forwards the download handler to the service', async () => {
+    // Given: the service reports a successful download dispatch
+    registerUpdaterHandlers()
+    serviceMock.downloadUpdate.mockReturnValue({ success: true })
+    const handler = capturedHandlers().get(IPC_CHANNELS.UPDATER_DOWNLOAD)
+
+    // When: the handler is invoked
+    const result = await handler?.(null)
+
+    // Then: the service value is passed through untouched
+    expect(result).toEqual({ success: true })
+    expect(serviceMock.downloadUpdate).toHaveBeenCalledOnce()
+  })
+
+  it('forwards the skip-version handler to the service', async () => {
+    // Given: the service reports a successful skip dispatch
+    registerUpdaterHandlers()
+    serviceMock.skipVersion.mockReturnValue({ success: true })
+    const handler = capturedHandlers().get(IPC_CHANNELS.UPDATER_SKIP_VERSION)
+
+    // When: the handler is invoked
+    const result = await handler?.(null)
+
+    // Then: the service value is passed through untouched
+    expect(result).toEqual({ success: true })
+    expect(serviceMock.skipVersion).toHaveBeenCalledOnce()
+  })
+
   it('forwards the open-releases handler to the service', async () => {
     // Given: the service reports a successful dispatch
     registerUpdaterHandlers()
@@ -95,6 +129,19 @@ describe('Updater IPC Handlers', () => {
     // Then: the service value is passed through untouched
     expect(result).toEqual({ success: true })
     expect(serviceMock.openReleasesPage).toHaveBeenCalledOnce()
+  })
+
+  it('passes the renderer-supplied version through to the open-releases service', async () => {
+    // Given: the service reports a successful dispatch
+    registerUpdaterHandlers()
+    serviceMock.openReleasesPage.mockReturnValue({ success: true })
+    const handler = capturedHandlers().get(IPC_CHANNELS.UPDATER_OPEN_RELEASES)
+
+    // When: the handler is invoked with a version argument
+    await handler?.(null, '1.2.3')
+
+    // Then: the version reaches the service untouched
+    expect(serviceMock.openReleasesPage).toHaveBeenCalledWith('1.2.3')
   })
 
   it('degrades a throwing get-state service to the error state snapshot shape', async () => {
@@ -129,6 +176,36 @@ describe('Updater IPC Handlers', () => {
 
     // Then: the response keeps the channel's own declared shape
     expect(result).toEqual({ success: false, error: 'install exploded' })
+  })
+
+  it('degrades a throwing download service to the failed action response shape', async () => {
+    // Given: the service download call throws
+    registerUpdaterHandlers()
+    serviceMock.downloadUpdate.mockImplementation(() => {
+      throw new Error('download exploded')
+    })
+    const handler = capturedHandlers().get(IPC_CHANNELS.UPDATER_DOWNLOAD)
+
+    // When: the handler is invoked
+    const result = await handler?.(null)
+
+    // Then: the response keeps the channel's own declared shape
+    expect(result).toEqual({ success: false, error: 'download exploded' })
+  })
+
+  it('degrades a throwing skip-version service to the failed action response shape', async () => {
+    // Given: the service skip call throws
+    registerUpdaterHandlers()
+    serviceMock.skipVersion.mockImplementation(() => {
+      throw new Error('skip exploded')
+    })
+    const handler = capturedHandlers().get(IPC_CHANNELS.UPDATER_SKIP_VERSION)
+
+    // When: the handler is invoked
+    const result = await handler?.(null)
+
+    // Then: the response keeps the channel's own declared shape
+    expect(result).toEqual({ success: false, error: 'skip exploded' })
   })
 
   it('degrades a throwing open-releases service to the failed action response shape', async () => {
