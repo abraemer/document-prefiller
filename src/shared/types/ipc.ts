@@ -30,6 +30,8 @@ export const IPC_CHANNELS = {
   UPDATER_GET_STATE: 'updater:get-state',
   UPDATER_INSTALL: 'updater:install',
   UPDATER_OPEN_RELEASES: 'updater:open-releases',
+  UPDATER_DOWNLOAD: 'updater:download',
+  UPDATER_SKIP_VERSION: 'updater:skip-version',
 
   // Event channels (main -> renderer)
   PROGRESS_EVENT: 'progress:event',
@@ -312,8 +314,11 @@ export type UpdaterStatus =
 
 /**
  * Suggested action the renderer should surface to the user
+ * - 'install': an update is offered but not yet downloaded (offer state on win/linux)
+ * - 'restart': a downloaded update is ready to install
+ * - 'open-page': manual download via the releases page (darwin)
  */
-export type UpdaterSuggestedAction = 'restart' | 'open-page';
+export type UpdaterSuggestedAction = 'install' | 'restart' | 'open-page';
 
 /**
  * Update Status Event
@@ -347,7 +352,7 @@ export interface UpdaterStateResponse {
 
 /**
  * Updater Action Response
- * Response to updater actions (install, open releases page)
+ * Response to updater actions (install, download, skip-version, open releases page)
  */
 export interface UpdaterActionResponse {
   /** Whether the action was dispatched successfully */

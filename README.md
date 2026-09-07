@@ -30,7 +30,7 @@ Everything stays local. Your documents are never uploaded to any server — ther
 - **Window State Memory**: Remembers window size, position, and last used folder.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
 - **Clean UI**: Built with Vue.js 3 and Vuetify 3 for a modern, responsive interface.
-- **Automatic Updates**: The app checks GitHub for new versions at launch.
+- **Automatic Updates**: The app checks for new versions at launch and offers to install them; you decide when (or whether) to update.
 
 ## Installation
 

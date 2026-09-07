@@ -1,6 +1,6 @@
 /**
  * useUpdater Composable
- * Manages auto-update notification state driven by updater IPC events
+ * Dialog state machine for the update offer, driven by updater IPC events
  */
 
 import { ref, onMounted, onUnmounted } from 'vue';
@@ -11,15 +11,25 @@ import type {
 } from '../../shared/types';
 
 /**
+ * Dialog state machine states:
+ * - 'offer': an update is offered, awaiting user consent
+ * - 'downloading': a user-initiated download is in flight
+ * - 'downloaded': the update is ready and a restart is suggested
+ * - 'download-error': a user-initiated download failed
+ * - null: the dialog is hidden
+ */
+export type UpdaterDialogState = 'offer' | 'downloading' | 'downloaded' | 'download-error' | null;
+
+/**
  * useUpdater Composable
  *
  * Subscribes to updater status broadcasts and folds in a startup snapshot.
- * The snackbar is shown only for actionable states ('restart' | 'open-page');
- * checking/not-available/downloading/error/idle stay silent.
+ * The dialog opens only for actionable events (offer, download progress,
+ * downloaded restart) and hides permanently for the session once dismissed.
  *
  * @example
  * ```typescript
- * const { status, version, progress, suggestedAction, visible, dismiss, install, openPage } = useUpdater();
+ * const { dialogState, dismiss, download, skipVersion, backToOffer, openChangelog } = useUpdater();
  * ```
  */
 export function useUpdater() {
@@ -39,8 +49,24 @@ export function useUpdater() {
   /** Suggested action for the user, when an action is required */
   const suggestedAction = ref<UpdaterSuggestedAction | null>(null);
 
-  /** Whether the notification snackbar is shown */
-  const visible = ref<boolean>(false);
+  /** Installed app version from the startup snapshot (display-only) */
+  const currentVersion = ref<string>('');
+
+  /** Error text shown in the 'download-error' state */
+  const errorMessage = ref<string>('');
+
+  /** Dialog state machine */
+  const dialogState = ref<UpdaterDialogState>(null);
+
+  /**
+   * Once set, the dialog stays hidden for the rest of the session: every
+   * subsequent broadcast (offer, downloading, progress, downloaded, error)
+   * maps to null. Without gating progress events too, Escape-during-download
+   * would let the next download-progress broadcast re-open the dialog.
+   * Set by ✕ close, Later on downloaded, Escape/outside-click, and a
+   * successful skipVersion().
+   */
+  let sessionDismissed = false;
 
   /**
    * Guards the snapshot fold-in: invoke resolution and ipcRenderer.on delivery
@@ -58,11 +84,48 @@ export function useUpdater() {
    */
   function applyEvent(event: UpdateStatusEvent): void {
     status.value = event.status;
-    version.value = event.version ?? '';
+    // Version-less broadcasts ('downloading', 'error') must not erase the
+    // offered version — the downloading display and the Back-to-offer
+    // changelog both depend on it.
+    version.value = event.version ?? version.value;
     progress.value = event.progress ?? 0;
     suggestedAction.value = event.suggestedAction ?? null;
-    visible.value =
-      event.suggestedAction === 'restart' || event.suggestedAction === 'open-page';
+
+    if (sessionDismissed) {
+      dialogState.value = null;
+      return;
+    }
+
+    switch (event.status) {
+      case 'available':
+        if (event.suggestedAction === 'install' || event.suggestedAction === 'open-page') {
+          dialogState.value = 'offer';
+        }
+        break;
+      case 'downloading':
+        dialogState.value = 'downloading';
+        break;
+      case 'downloaded':
+        if (event.suggestedAction === 'restart') {
+          dialogState.value = 'downloaded';
+        }
+        break;
+      case 'error':
+        // Only a failed user-initiated download surfaces; startup-check
+        // errors keep today's invisible behavior.
+        if (dialogState.value === 'downloading') {
+          errorMessage.value = event.error ?? '';
+          dialogState.value = 'download-error';
+        } else {
+          dialogState.value = null;
+        }
+        break;
+      // No dialog transition for the remaining statuses
+      case 'idle':
+      case 'checking':
+      case 'not-available':
+        break;
+    }
   }
 
   // ============================================================================
@@ -70,10 +133,65 @@ export function useUpdater() {
   // ============================================================================
 
   /**
-   * Hide the notification without acting
+   * Hide the dialog and suppress every further broadcast this session
    */
   function dismiss(): void {
-    visible.value = false;
+    sessionDismissed = true;
+    dialogState.value = null;
+  }
+
+  /**
+   * Download the offered update (win/linux consent flow). The response is
+   * checked because main's guard failures (darwin / never-offered) return
+   * failure WITHOUT broadcasting — an unchecked response would strand the
+   * dialog at 0% forever.
+   */
+  async function download(): Promise<void> {
+    dialogState.value = 'downloading';
+    progress.value = 0;
+    const response = await window.api.updater.downloadUpdate();
+    if (!response.success) {
+      errorMessage.value = response.error ?? '';
+      dialogState.value = 'download-error';
+    }
+  }
+
+  /**
+   * Retry the download from the 'download-error' state (inherits the check)
+   */
+  function retryDownload(): Promise<void> {
+    return download();
+  }
+
+  /**
+   * Persist the decision to never be offered this exact version again;
+   * on success hide the dialog for the rest of the session
+   */
+  async function skipVersion(): Promise<void> {
+    const response = await window.api.updater.skipVersion();
+    if (response.success) {
+      sessionDismissed = true;
+      dialogState.value = null;
+    }
+  }
+
+  /**
+   * Return from 'download-error' to 'offer' (dialog Back action) — no event
+   * re-emits 'available', so the renderer must restore the offer itself
+   */
+  function backToOffer(): void {
+    if (dialogState.value === 'download-error') {
+      dialogState.value = 'offer';
+    }
+  }
+
+  /**
+   * Open the changelog: the offered version's release tag page. Uses the
+   * offered-version ref, NEVER snapshot.currentVersion (the installed
+   * version) — that would open the wrong release's page.
+   */
+  async function openChangelog(): Promise<void> {
+    await window.api.updater.openReleasesPage(version.value);
   }
 
   /**
@@ -84,7 +202,8 @@ export function useUpdater() {
   }
 
   /**
-   * Open the GitHub releases page for manual download (macOS flow)
+   * Open the GitHub releases page for manual download (macOS flow); passes
+   * no version so main opens the plain RELEASES_URL
    */
   async function openPage(): Promise<void> {
     await window.api.updater.openReleasesPage();
@@ -112,6 +231,7 @@ export function useUpdater() {
       // Dev mode / portable / unsupported platform: render nothing
       return;
     }
+    currentVersion.value = snapshot.currentVersion;
     if (!receivedEvent) {
       applyEvent(snapshot.status);
     }
@@ -131,10 +251,17 @@ export function useUpdater() {
     version,
     progress,
     suggestedAction,
-    visible,
+    currentVersion,
+    errorMessage,
+    dialogState,
 
     // Operations
     dismiss,
+    download,
+    retryDownload,
+    skipVersion,
+    backToOffer,
+    openChangelog,
     install,
     openPage,
   };

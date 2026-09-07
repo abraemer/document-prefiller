@@ -233,11 +233,11 @@ async function runHappyPath(browser) {
     });
 
     await step('cold start: no update-notification UI', async () => {
-      const count = await page.locator('[data-testid="update-snackbar"]').count();
+      const count = await page.locator('[data-testid="update-dialog"]').count();
       if (count !== 0) {
-        throw new Error(`update snackbar present (count=${count})`);
+        throw new Error(`update dialog present (count=${count})`);
       }
-      return 'zero [data-testid="update-snackbar"] nodes';
+      return 'zero [data-testid="update-dialog"] nodes';
     });
 
     await step('upload tier forced', async () => {

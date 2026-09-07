@@ -110,7 +110,7 @@ Types for inter-process communication:
 - `UpdaterStatus` / `UpdaterSuggestedAction` - status and suggestion union types
 - `UpdateStatusEvent` - status event payload emitted on the `updater:status` channel
 - `UpdaterStateResponse` - snapshot response for the `updater:get-state` channel
-- `UpdaterActionResponse` - response for the `updater:install` and `updater:open-releases` channels
+- `UpdaterActionResponse` - response for the `updater:install`, `updater:download`, `updater:skip-version`, and `updater:open-releases` channels
 
 ### Type-Safe IPC
 

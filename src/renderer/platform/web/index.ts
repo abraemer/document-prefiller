@@ -338,7 +338,11 @@ export function installWebApi(): { ready: Promise<void> } {
         currentVersion: APP_VERSION,
       }),
       installUpdate: async (): Promise<UpdaterActionResponse> => ({ success: false }),
-      openReleasesPage: async (): Promise<UpdaterActionResponse> => ({ success: false }),
+      downloadUpdate: async (): Promise<UpdaterActionResponse> => ({ success: false }),
+      skipVersion: async (): Promise<UpdaterActionResponse> => ({ success: false }),
+      openReleasesPage: async (_version?: string): Promise<UpdaterActionResponse> => ({
+        success: false,
+      }),
       onUpdaterStatus: () => {},
       removeUpdaterStatusListener: () => {},
     },

@@ -151,8 +151,12 @@ export interface PlatformAPI {
     getUpdateState: () => Promise<UpdaterStateResponse>;
     /** Install a downloaded update */
     installUpdate: () => Promise<UpdaterActionResponse>;
+    /** Download the offered update (only after an explicit user action) */
+    downloadUpdate: () => Promise<UpdaterActionResponse>;
+    /** Permanently skip the offered version (suppresses future offers for it) */
+    skipVersion: () => Promise<UpdaterActionResponse>;
     /** Open the GitHub releases page for manual updates */
-    openReleasesPage: () => Promise<UpdaterActionResponse>;
+    openReleasesPage: (version?: string) => Promise<UpdaterActionResponse>;
     /** Listen for updater status changes */
     onUpdaterStatus: (callback: (event: UpdateStatusEvent) => void) => void;
     /** Remove updater status listener */

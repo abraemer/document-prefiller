@@ -660,6 +660,9 @@ describe('Web Adapter: updater stub', () => {
     });
     await expect(api.updater.installUpdate()).resolves.toEqual({ success: false });
     await expect(api.updater.openReleasesPage()).resolves.toEqual({ success: false });
+    await expect(api.updater.downloadUpdate()).resolves.toEqual({ success: false });
+    await expect(api.updater.skipVersion()).resolves.toEqual({ success: false });
+    await expect(api.updater.openReleasesPage('1.2.3')).resolves.toEqual({ success: false });
 
     let updaterState: ReturnType<typeof useUpdater> | undefined;
     const Host = defineComponent({
@@ -672,9 +675,9 @@ describe('Web Adapter: updater stub', () => {
     mount(Host);
     await flushPromises();
 
-    // The supported:false path renders nothing: no visible state, no
-    // suggested action, snackbar stays hidden.
-    expect(updaterState?.visible.value).toBe(false);
+    // The supported:false path renders nothing: no dialog state, no
+    // suggested action, the snackbar stays hidden.
+    expect(updaterState?.dialogState.value).toBeNull();
     expect(updaterState?.status.value).toBe('idle');
     expect(updaterState?.suggestedAction.value).toBeNull();
   });

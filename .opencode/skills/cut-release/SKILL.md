@@ -42,7 +42,7 @@ Pitfalls: `gh pr create` defaults `--head` to the current branch — always pass
 git fetch origin
 git tag v<VER> $(git rev-parse origin/main)   # tag exactly the merged main HEAD
 git push origin v<VER>
-gh release create v<VER> --target main --title "v<VER>" --notes "<summary of merged PRs since last release; mention the in-app updater delivers this to users on older versions (background download + confirm-to-restart on Windows NSIS / Linux AppImage; macOS opens the releases page because the app is unsigned)>"
+gh release create v<VER> --target main --title "v<VER>" --notes "<MUST start with a brief one-sentence plain-language summary of what changed (e.g. 'Several bug fixes.' or 'You can now foo the bar to quux.'), followed by the detailed list of merged PRs since last release; mention the in-app updater offers this to users on older versions in a dialog on next launch (user chooses install / skip this version / view changelog / later; download only starts after the user clicks install; Windows NSIS and Linux AppImage restart after a final confirm, macOS opens the releases page because the app is unsigned)>"
 ```
 
 The release MUST be published, not a draft — electron-updater cannot see drafts. Creating it triggers the build workflow; wait for all 4 jobs (build win/linux/mac + attach-to-release) to go green (~5 min): `gh run list --limit 3`, then `gh run watch <id> --exit-status`.

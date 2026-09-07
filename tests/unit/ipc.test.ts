@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { isSuccess, isError, getDataOrThrow, getDataOrDefault } from '../../src/renderer/utils/ipc';
 import { IPC_CHANNELS } from '../../src/shared/types';
 import type { IpcResponse, IpcSuccessResponse, IpcErrorResponse } from '../../src/shared/types';
+import { releaseTagUrl } from '../../src/shared/constants';
 
 // ============================================================================
 // CONVENIENCE FUNCTIONS TESTS
@@ -541,6 +542,34 @@ describe('IPC - Updater Channels', () => {
     expect(IPC_CHANNELS.UPDATER_GET_STATE).toBe('updater:get-state');
     expect(IPC_CHANNELS.UPDATER_INSTALL).toBe('updater:install');
     expect(IPC_CHANNELS.UPDATER_OPEN_RELEASES).toBe('updater:open-releases');
+    expect(IPC_CHANNELS.UPDATER_DOWNLOAD).toBe('updater:download');
+    expect(IPC_CHANNELS.UPDATER_SKIP_VERSION).toBe('updater:skip-version');
     expect(IPC_CHANNELS.UPDATER_STATUS).toBe('updater:status');
+  });
+});
+
+// ============================================================================
+// RELEASE TAG URL TESTS
+// ============================================================================
+
+describe('releaseTagUrl', () => {
+  it('should build the tag URL for a valid release version', () => {
+    expect(releaseTagUrl('1.2.3')).toBe(
+      'https://github.com/abraemer/document-prefiller/releases/tag/v1.2.3'
+    );
+  });
+
+  it('should accept a valid prerelease version', () => {
+    expect(releaseTagUrl('1.2.3-beta.1')).toBe(
+      'https://github.com/abraemer/document-prefiller/releases/tag/v1.2.3-beta.1'
+    );
+  });
+
+  it('should reject a path-traversal version string', () => {
+    expect(releaseTagUrl('1.2.3/../../evil')).toBeNull();
+  });
+
+  it('should reject a non-semver version string', () => {
+    expect(releaseTagUrl('latest')).toBeNull();
   });
 });

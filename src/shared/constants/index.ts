@@ -346,6 +346,18 @@ export const SHORTCUT_PREVIOUS_INPUT = 'Shift+Tab';
  */
 export const RELEASES_URL = 'https://github.com/abraemer/document-prefiller/releases/latest';
 
+/**
+ * URL of the GitHub release page for a specific version, or null when the
+ * version is not strict semver — a malformed version must never be
+ * interpolated into a URL passed to shell.openExternal
+ */
+export function releaseTagUrl(version: string): string | null {
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    return null;
+  }
+  return `https://github.com/abraemer/document-prefiller/releases/tag/v${version}`;
+}
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
