@@ -675,9 +675,9 @@ describe('Web Adapter: updater stub', () => {
     mount(Host);
     await flushPromises();
 
-    // The supported:false path renders nothing: no visible state, no
-    // suggested action, snackbar stays hidden.
-    expect(updaterState?.visible.value).toBe(false);
+    // The supported:false path renders nothing: no dialog state, no
+    // suggested action, the snackbar stays hidden.
+    expect(updaterState?.dialogState.value).toBeNull();
     expect(updaterState?.status.value).toBe('idle');
     expect(updaterState?.suggestedAction.value).toBeNull();
   });
