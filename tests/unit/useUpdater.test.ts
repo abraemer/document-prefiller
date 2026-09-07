@@ -84,10 +84,9 @@ describe('useUpdater composable: event-driven dialog states', () => {
     statusCallback({ status: 'available', version: '9.9.9', suggestedAction: 'install' })
     await flushPromises()
 
-    // Then: the dialog enters the offer state and the visible alias follows
+    // Then: the dialog enters the offer state
     expect(updaterState?.dialogState.value).toBe('offer')
     expect(updaterState?.version.value).toBe('9.9.9')
-    expect(updaterState?.visible.value).toBe(true)
   })
 
   it('shows the offer dialog for the darwin open-page suggestion', async () => {
@@ -213,7 +212,6 @@ describe('useUpdater composable: event-driven dialog states', () => {
 
     // Then: the dialog hides and NO subsequent broadcast re-opens it
     expect(updaterState?.dialogState.value).toBeNull()
-    expect(updaterState?.visible.value).toBe(false)
     statusCallback({ status: 'available', version: '9.9.9', suggestedAction: 'install' })
     expect(updaterState?.dialogState.value).toBeNull()
     statusCallback({ status: 'downloading', progress: 10 })

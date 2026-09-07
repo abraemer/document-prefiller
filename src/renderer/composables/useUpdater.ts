@@ -3,7 +3,7 @@
  * Dialog state machine for the update offer, driven by updater IPC events
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import type {
   UpdateStatusEvent,
   UpdaterStatus,
@@ -251,13 +251,6 @@ export function useUpdater() {
     currentVersion,
     errorMessage,
     dialogState,
-
-    /**
-     * @deprecated Derived alias of `dialogState !== null`, kept compiling
-     * for UpdateNotification.vue until T5 rewrites the component. T5
-     * removes this alias together with the old snackbar.
-     */
-    visible: computed(() => dialogState.value !== null),
 
     // Operations
     dismiss,
