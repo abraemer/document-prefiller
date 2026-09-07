@@ -179,10 +179,24 @@ const updaterAPI = {
   },
 
   /**
+   * Download the offered update
+   */
+  downloadUpdate: (): Promise<UpdaterActionResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_DOWNLOAD)
+  },
+
+  /**
+   * Permanently skip the offered version
+   */
+  skipVersion: (): Promise<UpdaterActionResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_SKIP_VERSION)
+  },
+
+  /**
    * Open the GitHub releases page for manual updates
    */
-  openReleasesPage: (): Promise<UpdaterActionResponse> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_OPEN_RELEASES)
+  openReleasesPage: (version?: string): Promise<UpdaterActionResponse> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATER_OPEN_RELEASES, version)
   },
 
   /**

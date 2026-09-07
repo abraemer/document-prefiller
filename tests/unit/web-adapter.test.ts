@@ -660,6 +660,9 @@ describe('Web Adapter: updater stub', () => {
     });
     await expect(api.updater.installUpdate()).resolves.toEqual({ success: false });
     await expect(api.updater.openReleasesPage()).resolves.toEqual({ success: false });
+    await expect(api.updater.downloadUpdate()).resolves.toEqual({ success: false });
+    await expect(api.updater.skipVersion()).resolves.toEqual({ success: false });
+    await expect(api.updater.openReleasesPage('1.2.3')).resolves.toEqual({ success: false });
 
     let updaterState: ReturnType<typeof useUpdater> | undefined;
     const Host = defineComponent({
